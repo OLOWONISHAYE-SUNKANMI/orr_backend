@@ -109,9 +109,12 @@ class LoginSerializer(serializers.Serializer):
                     "can_view_ai_logs": role.can_view_ai_logs,
                 },
             }
-        elif hasattr(user, "profile"):
+        elif hasattr(user, "profile") or hasattr(user, "client_profile"):
+            from admin_portal.models import Client
+            client_obj = Client.objects.filter(user=user).first()
             return {
                 "user_type": "client",
+                "client_id": client_obj.id if client_obj else None,
                 "permissions": {
                     "can_access_portal": True,
                     "can_request_meetings": True,

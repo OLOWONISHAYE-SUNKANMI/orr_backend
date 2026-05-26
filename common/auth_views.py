@@ -237,9 +237,13 @@ class GoogleLoginView(APIView):
                 }
         except Exception:
             pass
+            
         # Default to client permissions
+        from admin_portal.models import Client
+        client_obj = Client.objects.filter(user=user).first()
         return {
             "user_type": "client",
+            "client_id": client_obj.id if client_obj else None,
             "permissions": {
                 "can_access_portal": True,
                 "can_request_meetings": True,
