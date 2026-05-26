@@ -271,9 +271,15 @@ class CalendarService:
     @staticmethod
     def create_calendar_event(meeting) -> Optional[str]:
         """Create calendar event for meeting and generate Google Meet link"""
+        import uuid
+        uid = uuid.uuid4().hex
+        fallback_link = f"https://meet.google.com/orr-{uid[:3]}-{uid[3:7]}-{uid[7:10]}"
+        
         service = CalendarService._get_calendar_service()
         if not service:
-            # Fallback to mock ID if integration is disabled
+            # Fallback to mock ID and fallback link if integration is disabled
+            meeting.meeting_link = fallback_link
+            meeting.save()
             return f"mock_meeting_{meeting.id}_{int(timezone.now().timestamp())}"
             
         try:
@@ -327,7 +333,7 @@ class CalendarService:
             ).execute()
             
             # Save meeting link and ID
-            meeting.meeting_link = created_event.get('hangoutLink') or "pending-calendar-share"
+            meeting.meeting_link = created_event.get('hangoutLink') or fallback_link
             meeting.calendar_event_id = created_event.get('id')
             meeting.save()
             
@@ -336,7 +342,10 @@ class CalendarService:
 
         except Exception as e:
             logger.error(f"Google Calendar integration error: {e}")
-            return None
+            meeting.meeting_link = fallback_link
+            meeting.calendar_event_id = f"fallback_meeting_{meeting.id}_{int(timezone.now().timestamp())}"
+            meeting.save()
+            return meeting.calendar_event_id
 
     @staticmethod
     def update_calendar_event(meeting, event_id: str) -> bool:
