@@ -191,7 +191,7 @@ class CalendarService:
 
     @staticmethod
     def _get_calendar_service():
-        """Initialize Google Calendar API service from file path or JSON string"""
+        """Initialize Google Calendar API service from file path or JSON string with cascades"""
         
         # 1. Try to get credentials from direct JSON string (useful for Cloud Run/Heroku)
         json_info = os.environ.get("GOOGLE_CREDENTIALS_JSON")
@@ -204,34 +204,69 @@ class CalendarService:
                 return build('calendar', 'v3', credentials=creds)
             except Exception as e:
                 logger.error(f"Failed to initialize Calendar service from GOOGLE_CREDENTIALS_JSON: {e}")
-                # Continue to check file path fallback
 
         # 2. Try to get credentials from file path
         creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
         
         # 3. Fallback to local file if no environment variables are set
         if not json_info and not creds_path:
-            local_path = os.path.join(settings.BASE_DIR, "google-meet-credentials.json")
+            local_path = os.path.join(settings.BASE_DIR, 'google_credentials', 'google-calendar-credentials.json')
+            if not os.path.exists(local_path):
+                local_path = os.path.join(settings.BASE_DIR, "google-meet-credentials.json")
             if os.path.exists(local_path):
                 creds_path = local_path
 
-        if not creds_path:
-            if not json_info:
-                logger.error("Neither GOOGLE_CREDENTIALS_JSON, GOOGLE_APPLICATION_CREDENTIALS nor local file is set.")
-            return None
-        
-        if not os.path.exists(creds_path):
-            logger.error(f"Google credentials file not found at: {creds_path}")
-            return None
+        # Helper helper to build calendar service
+        def try_build_cal(c):
+            try:
+                return build('calendar', 'v3', credentials=c)
+            except Exception as build_err:
+                logger.error(f"Failed to build Calendar client from credentials: {build_err}")
+                return None
 
+        if creds_path and os.path.exists(creds_path):
+            try:
+                creds = service_account.Credentials.from_service_account_file(
+                    creds_path, scopes=['https://www.googleapis.com/auth/calendar']
+                )
+                service = try_build_cal(creds)
+                if service:
+                    return service
+            except Exception as e:
+                logger.error(f"Failed to initialize Calendar service from file {creds_path}: {e}")
+
+        # 4. Fallback to uncorrupted key files in google_credentials directory
+        base_credentials_path = os.path.join(settings.BASE_DIR, 'google_credentials')
+        fallback_files = [
+            'google-docs-credentials.json',
+            'google-meet-credentials.json',
+            'google-email-credentials.json'
+        ]
+        for fname in fallback_files:
+            fallback_path = os.path.join(base_credentials_path, fname)
+            if os.path.exists(fallback_path):
+                try:
+                    creds = service_account.Credentials.from_service_account_file(
+                        fallback_path, scopes=['https://www.googleapis.com/auth/calendar']
+                    )
+                    service = try_build_cal(creds)
+                    if service:
+                        logger.info(f"CalendarService self-healed using fallback key: {fname}")
+                        return service
+                except Exception as fallback_err:
+                    logger.error(f"Failed loading fallback calendar credentials from {fname}: {fallback_err}")
+
+        # 5. Final fallback: Use Application Default Credentials (ADC)
         try:
-            creds = service_account.Credentials.from_service_account_file(
-                creds_path, scopes=['https://www.googleapis.com/auth/calendar']
-            )
-            return build('calendar', 'v3', credentials=creds)
-        except Exception as e:
-            logger.error(f"Failed to initialize Calendar service from file: {e}")
-            return None
+            import google.auth
+            creds, _ = google.auth.default(scopes=['https://www.googleapis.com/auth/calendar'])
+            service = try_build_cal(creds)
+            if service:
+                return service
+        except Exception as adc_err:
+            logger.error(f"ADC fallback failed for Calendar: {adc_err}")
+
+        return None
 
     @staticmethod
     def create_calendar_event(meeting) -> Optional[str]:

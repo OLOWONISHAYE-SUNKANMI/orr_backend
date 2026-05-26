@@ -7,6 +7,8 @@ from django.conf import settings
 class GoogleService:
     def __init__(self, service_type='docs'):
         self.service_type = service_type
+        self.credentials = None
+        self.service = None
         
         # 1. Try specific env var first (e.g. GOOGLE_CALENDAR_CREDENTIALS_JSON)
         env_var_name = f"GOOGLE_{service_type.upper()}_CREDENTIALS_JSON"
@@ -20,6 +22,15 @@ class GoogleService:
         if not env_creds:
             env_creds = os.environ.get("GOOGLE_CREDENTIALS_JSON")
         
+        # Helper to build the api service resource
+        def try_build(creds):
+            try:
+                return build(self._get_api_name(), self._get_api_version(), credentials=creds)
+            except Exception as build_err:
+                print(f"Failed to build Google API client: {build_err}")
+                return None
+
+        # Try to load credentials from env first
         if env_creds:
             try:
                 creds_info = json.loads(env_creds)
@@ -27,21 +38,59 @@ class GoogleService:
                     creds_info,
                     scopes=self._get_scopes()
                 )
+                self.service = try_build(self.credentials)
             except Exception as e:
                 print(f"Error loading credentials from environment: {e}")
-                self._load_from_file()
-        else:
+
+        # If loading from env failed or didn't yield a working service, try file paths
+        if not self.service:
+            # 1. Try primary path for service
+            primary_path = self._get_credentials_path()
+            if os.path.exists(primary_path):
+                try:
+                    self.credentials = service_account.Credentials.from_service_account_file(
+                        primary_path,
+                        scopes=self._get_scopes()
+                    )
+                    self.service = try_build(self.credentials)
+                except Exception as e:
+                    print(f"Primary key file {primary_path} failed to load/parse: {e}")
+
+        # 2. If primary file failed, try fallback keys
+        if not self.service:
+            base_path = os.path.join(settings.BASE_DIR, 'google_credentials')
+            fallbacks = [
+                'google-docs-credentials.json',
+                'google-meet-credentials.json',
+                'google-email-credentials.json'
+            ]
+            for fallback_name in fallbacks:
+                fallback_path = os.path.join(base_path, fallback_name)
+                if os.path.exists(fallback_path) and fallback_path != primary_path:
+                    try:
+                        self.credentials = service_account.Credentials.from_service_account_file(
+                            fallback_path,
+                            scopes=self._get_scopes()
+                        )
+                        self.service = try_build(self.credentials)
+                        if self.service:
+                            print(f"Successfully self-healed GoogleService using fallback key: {fallback_name}")
+                            break
+                    except Exception as e:
+                        print(f"Fallback key {fallback_name} failed: {e}")
+
+        # 3. Final fallback: Use Application Default Credentials (ADC)
+        if not self.service:
             try:
-                # Try loading from file first
-                self._load_from_file()
-            except Exception:
-                # Final fallback: Use Application Default Credentials (ADC)
-                # This is perfect for Cloud Run since the service account there
-                # already has the "Editor" role.
                 import google.auth
                 self.credentials, _ = google.auth.default(scopes=self._get_scopes())
-            
-        self.service = build(self._get_api_name(), self._get_api_version(), credentials=self.credentials)
+                self.service = try_build(self.credentials)
+            except Exception as e:
+                print(f"ADC fallback failed: {e}")
+
+        # If everything failed, raise a clear error that caller functions can catch
+        if not self.service:
+            raise RuntimeError(f"Could not build Google API service for {service_type}. All credentials files and environment options failed.")
 
     def _load_from_file(self):
         self.credentials_path = self._get_credentials_path()
