@@ -273,7 +273,7 @@ class CalendarService:
         """Create calendar event for meeting and generate Google Meet link"""
         import uuid
         uid = uuid.uuid4().hex
-        fallback_link = f"https://meet.google.com/orr-{uid[:3]}-{uid[3:7]}-{uid[7:10]}"
+        fallback_link = f"https://meet.jit.si/orr-solutions-{meeting.id}-{uid[:8]}"
         
         service = CalendarService._get_calendar_service()
         if not service:
