@@ -365,9 +365,14 @@ class VaultActivityListView(APIView):
 
         activities = []
         for doc in docs:
+            uploaded_by_user = doc.uploaded_by
+            user_name = "System"
+            if uploaded_by_user:
+                user_name = uploaded_by_user.get_full_name() or uploaded_by_user.username
+
             activities.append({
                 "id": doc.id,
-                "user": user.get_full_name() or user.username,
+                "user": user_name,
                 "action": "uploaded" if doc.document_source == 'file' else "created",
                 "item": doc.title,
                 "description": f"{doc.document_source} document",
