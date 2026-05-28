@@ -20,19 +20,25 @@ from rest_framework import serializers
 class VaultFolderSerializer(serializers.ModelSerializer):
     doc_count = serializers.SerializerMethodField()
     parent = serializers.PrimaryKeyRelatedField(read_only=True)
+    client_name = serializers.SerializerMethodField()
 
     class Meta:
         model = VaultFolder
-        fields = ['id', 'name', 'parent', 'doc_count', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'parent', 'client', 'client_name', 'project', 'doc_count', 'created_at', 'updated_at']
 
     def get_doc_count(self, obj):
         return obj.documents.count()
+
+    def get_client_name(self, obj):
+        if obj.client and obj.client.user:
+            return obj.client.user.get_full_name() or obj.client.user.username
+        return ''
 
 
 class VaultFolderCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = VaultFolder
-        fields = ['id', 'name', 'parent', 'client']
+        fields = ['id', 'name', 'parent', 'client', 'project']
 
     def validate_client(self, value):
         return value
@@ -46,13 +52,15 @@ class VaultDocumentSerializer(serializers.ModelSerializer):
     folder_id = serializers.SerializerMethodField()
     file_size = serializers.SerializerMethodField()
     name = serializers.CharField(source='title')
+    client_name = serializers.SerializerMethodField()
+    project = serializers.SerializerMethodField()
 
     class Meta:
         model = ClientDocument
         fields = [
             'id', 'name', 'title', 'link', 'document_type', 'document_source',
             'google_drive_id', 'category', 'visibility', 'folder', 'folder_id',
-            'file_size', 'created_at', 'updated_at',
+            'file_size', 'client', 'client_name', 'project', 'created_at', 'updated_at',
         ]
 
     def get_link(self, obj):
@@ -75,6 +83,16 @@ class VaultDocumentSerializer(serializers.ModelSerializer):
             except Exception:
                 pass
         return '0 KB'
+
+    def get_client_name(self, obj):
+        if obj.client and obj.client.user:
+            return obj.client.user.get_full_name() or obj.client.user.username
+        return ''
+
+    def get_project(self, obj):
+        if obj.folder:
+            return obj.folder.project
+        return ''
 
 
 class VaultDocumentCreateSerializer(serializers.ModelSerializer):
