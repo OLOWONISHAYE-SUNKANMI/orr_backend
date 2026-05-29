@@ -136,7 +136,7 @@ def _build_document_queryset(base_qs):
     return base_qs.select_related(
         'client__user', 'folder', 'uploaded_by'
     ).defer(
-        'description', 'access_rule_description', 'access_rule_linked_id'
+        'access_rule_description', 'access_rule_linked_id'
     ).order_by('-updated_at')
 
 
