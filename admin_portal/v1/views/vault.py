@@ -62,7 +62,7 @@ class VaultDocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClientDocument
         fields = [
-            'id', 'name', 'title', 'link', 'document_type', 'document_source',
+            'id', 'name', 'title', 'description', 'link', 'document_type', 'document_source',
             'google_drive_id', 'category', 'visibility', 'folder', 'folder_id',
             'file_size', 'client', 'client_name', 'project', 'created_at', 'updated_at',
         ]
