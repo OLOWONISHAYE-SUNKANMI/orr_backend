@@ -635,8 +635,27 @@ class ClientDocument(Audit):
         
         if self.document:
             try:
-                url = self.document.url
-                # Ensure extension is present for local files
+                # Optimized URL builder to completely bypass expensive storage backend cryptographic signing/network calls
+                name = self.document.name
+                if not name:
+                    return None
+                
+                if name.startswith('http://') or name.startswith('https://'):
+                    url = name
+                else:
+                    from django.conf import settings
+                    bucket_name = getattr(settings, 'GS_BUCKET_NAME', 'orr-solutions-media')
+                    
+                    # If we are in production and using GoogleCloudStorage, construct the direct public storage link
+                    default_storage = getattr(settings, 'STORAGES', {}).get('default', {}).get('BACKEND', '')
+                    if 'GoogleCloudStorage' in default_storage or 'gcloud' in str(getattr(settings, 'DEFAULT_FILE_STORAGE', '')):
+                        url = f"https://storage.googleapis.com/{bucket_name}/{name}"
+                    else:
+                        # Fallback for local storage
+                        media_url = getattr(settings, 'MEDIA_URL', '/media/')
+                        url = f"{media_url.rstrip('/')}/{name}"
+
+                # Ensure extension is present for local/cloud files
                 if self.document_type and not url.lower().endswith(self.document_type.lower().replace('.', '')):
                      if not url.endswith('.'): url += '.'
                      url += self.document_type.replace('.', '')
@@ -650,7 +669,10 @@ class ClientDocument(Audit):
                     return f"{api_url.rstrip('/')}{url}"
                 return url
             except Exception:
-                return None
+                try:
+                    return self.document.url
+                except Exception:
+                    return None
         return None
 
     def __str__(self):
