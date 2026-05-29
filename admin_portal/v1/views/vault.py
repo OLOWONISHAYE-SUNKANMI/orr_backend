@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Count
 
 from admin_portal.models import ClientDocument, VaultFolder, Client
 from drf_spectacular.utils import extend_schema
@@ -27,11 +27,15 @@ class VaultFolderSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'parent', 'client', 'client_name', 'project', 'doc_count', 'created_at', 'updated_at']
 
     def get_doc_count(self, obj):
-        return obj.documents.count()
+        return getattr(obj, 'annotated_doc_count', 0)
 
     def get_client_name(self, obj):
-        if obj.client and obj.client.user:
-            return obj.client.user.get_full_name() or obj.client.user.username
+        # client__user already fetched via select_related
+        try:
+            if obj.client_id and obj.client and obj.client.user:
+                return obj.client.user.get_full_name() or obj.client.user.username
+        except Exception:
+            pass
         return ''
 
 
@@ -49,7 +53,7 @@ class VaultFolderCreateSerializer(serializers.ModelSerializer):
 
 class VaultDocumentSerializer(serializers.ModelSerializer):
     link = serializers.SerializerMethodField()
-    folder_id = serializers.SerializerMethodField()
+    folder_id = serializers.IntegerField(source='folder_id', read_only=True, default=None)
     file_size = serializers.SerializerMethodField()
     name = serializers.CharField(source='title')
     client_name = serializers.SerializerMethodField()
@@ -67,31 +71,31 @@ class VaultDocumentSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         return obj.get_document_link(request)
 
-    def get_folder_id(self, obj):
-        return obj.folder_id
-
     def get_file_size(self, obj):
-        if obj.document:
-            try:
-                size = obj.document.size
-                if size < 1024:
-                    return f'{size} B'
-                elif size < 1024 * 1024:
-                    return f'{size // 1024} KB'
-                else:
-                    return f'{size // (1024 * 1024)} MB'
-            except Exception:
-                pass
+        size = obj.file_size
+        # Removed self-healing DB write — file_size is populated on save()
+        if size:
+            if size < 1024:
+                return f'{size} B'
+            elif size < 1024 * 1024:
+                return f'{size // 1024} KB'
+            else:
+                return f'{size // (1024 * 1024)} MB'
         return '0 KB'
 
     def get_client_name(self, obj):
-        if obj.client and obj.client.user:
-            return obj.client.user.get_full_name() or obj.client.user.username
+        # client__user already fetched via select_related
+        try:
+            if obj.client_id and obj.client and obj.client.user:
+                return obj.client.user.get_full_name() or obj.client.user.username
+        except Exception:
+            pass
         return ''
 
     def get_project(self, obj):
-        if obj.folder:
-            return obj.folder.project
+        # folder already fetched via select_related
+        if obj.folder_id and obj.folder:
+            return obj.folder.project or ''
         return ''
 
 
@@ -109,16 +113,72 @@ class VaultDocumentCreateSerializer(serializers.ModelSerializer):
 
 
 # ---------------------------------------------------------------------------
-# Helper: get client from request user
+# Helper: get client from request user (cached on user object)
 # ---------------------------------------------------------------------------
 
 def _get_client(user):
-    """Return the Client object for this user, or None."""
-    return Client.objects.filter(user=user).first()
+    """Return the Client object for this user, or None. Cached per-request."""
+    if not hasattr(user, '_cached_client_profile'):
+        user._cached_client_profile = Client.objects.filter(user=user).select_related('user').first()
+    return user._cached_client_profile
 
 
 def _is_admin(user):
     return hasattr(user, 'admin_profile')
+
+
+# ---------------------------------------------------------------------------
+# Shared queryset builders with proper select_related and defer
+# ---------------------------------------------------------------------------
+
+def _build_document_queryset(base_qs):
+    """Apply select_related and defer heavy fields for list views."""
+    return base_qs.select_related(
+        'client__user', 'folder', 'uploaded_by'
+    ).defer(
+        'description', 'access_rule_description', 'access_rule_linked_id'
+    ).order_by('-updated_at')
+
+
+def _build_folder_queryset(base_qs):
+    """Apply select_related and annotate doc_count for folder lists."""
+    return base_qs.select_related(
+        'client__user', 'parent'
+    ).annotate(
+        annotated_doc_count=Count('documents')
+    ).order_by('-updated_at')
+
+
+# ---------------------------------------------------------------------------
+# Pagination helper
+# ---------------------------------------------------------------------------
+
+def _paginate(queryset, request):
+    """
+    Lightweight manual pagination.
+    Accepts ?page=1&page_size=100 query params.
+    Returns (page_qs, pagination_meta).
+    """
+    try:
+        page = max(1, int(request.query_params.get('page', 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        page_size = min(500, max(1, int(request.query_params.get('page_size', 200))))
+    except (ValueError, TypeError):
+        page_size = 200
+
+    total = queryset.count()
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    offset = (page - 1) * page_size
+    page_qs = queryset[offset:offset + page_size]
+
+    return page_qs, {
+        'page': page,
+        'page_size': page_size,
+        'total': total,
+        'total_pages': total_pages,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -147,6 +207,7 @@ class VaultFolderListView(APIView):
                 )
             folders = VaultFolder.objects.filter(client=client)
 
+        folders = _build_folder_queryset(folders)
         serializer = VaultFolderSerializer(folders, many=True, context={'request': request})
         return Response({"status": "success", "data": serializer.data})
 
@@ -210,10 +271,14 @@ class VaultDocumentListView(APIView):
 
         if _is_admin(user):
             client_id = request.query_params.get('client_id')
+            visibility = request.query_params.get('visibility')
             if client_id:
                 docs = ClientDocument.objects.filter(client_id=client_id)
             else:
                 docs = ClientDocument.objects.all()
+            # Server-side visibility filter for admin
+            if visibility in ('client', 'internal'):
+                docs = docs.filter(visibility=visibility)
         else:
             client = _get_client(user)
             if not client:
@@ -223,8 +288,16 @@ class VaultDocumentListView(APIView):
                 )
             docs = ClientDocument.objects.filter(client=client, is_visible_to_client=True)
 
-        serializer = VaultDocumentSerializer(docs, many=True, context={'request': request})
-        return Response({"status": "success", "data": serializer.data})
+        docs = _build_document_queryset(docs)
+
+        # Pagination
+        page_qs, pagination = _paginate(docs, request)
+        serializer = VaultDocumentSerializer(page_qs, many=True, context={'request': request})
+        return Response({
+            "status": "success",
+            "data": serializer.data,
+            "pagination": pagination,
+        })
 
     def post(self, request):
         user = request.user
@@ -290,7 +363,9 @@ class VaultDocumentDetailView(APIView):
 
     def _get_doc(self, pk, user):
         try:
-            doc = ClientDocument.objects.get(pk=pk)
+            doc = ClientDocument.objects.select_related(
+                'client__user', 'folder', 'uploaded_by'
+            ).get(pk=pk)
         except ClientDocument.DoesNotExist:
             return None, None
 
@@ -298,7 +373,7 @@ class VaultDocumentDetailView(APIView):
             return doc, None
 
         client = _get_client(user)
-        if not client or doc.client != client:
+        if not client or doc.client_id != client.id:
             return None, "You do not have permission to access this document."
 
         if not doc.is_visible_to_client:
@@ -354,14 +429,17 @@ class VaultActivityListView(APIView):
         if _is_admin(user):
             client_id = request.query_params.get('client_id')
             if client_id:
-                docs = ClientDocument.objects.filter(client_id=client_id).order_by('-updated_at')[:20]
+                docs = ClientDocument.objects.filter(client_id=client_id)
             else:
-                docs = ClientDocument.objects.all().order_by('-updated_at')[:20]
+                docs = ClientDocument.objects.all()
         else:
             client = _get_client(user)
             if not client:
                 return Response({"status": "success", "data": []})
-            docs = ClientDocument.objects.filter(client=client).order_by('-updated_at')[:20]
+            docs = ClientDocument.objects.filter(client=client)
+
+        # Apply select_related BEFORE slicing for optimal query
+        docs = docs.select_related('uploaded_by').order_by('-updated_at')[:20]
 
         activities = []
         for doc in docs:
