@@ -524,6 +524,12 @@ class VaultFolder(Audit):
     client = models.ForeignKey(Client, on_delete=models.CASCADE, null=True, blank=True, related_name='folders')
     project = models.CharField(max_length=200, blank=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['client'], name='vaultfolder_client_idx'),
+            models.Index(fields=['parent'], name='vaultfolder_parent_idx'),
+        ]
+
     def __str__(self):
         return f"{self.client.company if self.client else 'Global'} - {self.name}"
 
@@ -558,6 +564,7 @@ class ClientDocument(Audit):
     category = models.CharField(max_length=100, blank=True)
     document = models.FileField(upload_to="client_documents/", null=True, blank=True)
     document_type = models.CharField(max_length=50, blank=True)
+    file_size = models.PositiveIntegerField(null=True, blank=True)
 
     # Access control
     is_visible_to_client = models.BooleanField(default=True)
@@ -588,12 +595,31 @@ class ClientDocument(Audit):
     download_count = models.PositiveIntegerField(default=0)
     last_accessed = models.DateTimeField(null=True, blank=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['client', 'is_visible_to_client'], name='clientdoc_client_visible_idx'),
+            models.Index(fields=['client', 'visibility'], name='clientdoc_client_vis_idx'),
+            models.Index(fields=['client', '-updated_at'], name='clientdoc_client_updated_idx'),
+            models.Index(fields=['folder'], name='clientdoc_folder_idx'),
+            models.Index(fields=['-updated_at'], name='clientdoc_updated_idx'),
+            models.Index(fields=['visibility'], name='clientdoc_visibility_idx'),
+        ]
+        ordering = ['-updated_at']
+
     def save(self, *args, **kwargs):
         if self.document and not self.document_type:
             import os
             ext = os.path.splitext(self.document.name)[1].lower()
             if ext:
                 self.document_type = ext.replace('.', '')
+                
+        # Populate file_size if not set and document exists
+        if self.document and self.file_size is None:
+            try:
+                self.file_size = self.document.size
+            except Exception:
+                pass
+                
         super().save(*args, **kwargs)
 
     def get_document_link(self, request=None):
