@@ -53,7 +53,7 @@ class VaultFolderCreateSerializer(serializers.ModelSerializer):
 
 class VaultDocumentSerializer(serializers.ModelSerializer):
     link = serializers.SerializerMethodField()
-    folder_id = serializers.IntegerField(source='folder_id', read_only=True, default=None)
+    folder_id = serializers.IntegerField(read_only=True)
     file_size = serializers.SerializerMethodField()
     name = serializers.CharField(source='title')
     client_name = serializers.SerializerMethodField()
