@@ -161,8 +161,11 @@ class AccountSettingsView(APIView):
                         media_url = getattr(settings, 'MEDIA_URL', '/media/')
                         profile_pic_url = f"{media_url.rstrip('/')}/{name}"
             except Exception:
+                # Direct local fallback to avoid slow storage backend calls
                 try:
-                    profile_pic_url = profile.profile_pic.url
+                    name = profile.profile_pic.name
+                    if name:
+                        profile_pic_url = f"https://storage.googleapis.com/orr-solutions-media/{name}"
                 except Exception:
                     pass
 
@@ -182,10 +185,14 @@ class AccountSettingsView(APIView):
                         media_url = getattr(settings, 'MEDIA_URL', '/media/')
                         bio_attachment_url = f"{media_url.rstrip('/')}/{name}"
             except Exception:
+                # Direct local fallback to avoid slow storage backend calls
                 try:
-                    bio_attachment_url = profile.bio_attachment.url
+                    name = profile.bio_attachment.name
+                    if name:
+                        bio_attachment_url = f"https://storage.googleapis.com/orr-solutions-media/{name}"
                 except Exception:
                     pass
+
 
         return Response(
             {

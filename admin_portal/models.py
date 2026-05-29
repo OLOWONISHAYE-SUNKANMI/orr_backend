@@ -669,11 +669,16 @@ class ClientDocument(Audit):
                     return f"{api_url.rstrip('/')}{url}"
                 return url
             except Exception:
+                # Direct local fallback to avoid slow storage backend calls
                 try:
-                    return self.document.url
+                    name = self.document.name
+                    if name:
+                        return f"https://storage.googleapis.com/orr-solutions-media/{name}"
                 except Exception:
-                    return None
+                    pass
+                return None
         return None
+
 
     def __str__(self):
         return f"{self.client.user.get_full_name()} - {self.title}"
