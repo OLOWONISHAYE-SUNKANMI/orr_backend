@@ -8,6 +8,7 @@ from .models import (
     AdminProfile, AdminRole, AIConversation, AuditLog, Client, ClientDocument,
     Content, Meeting, SystemNotification, SystemSettings, Ticket, TicketMessage,
     ProRataApproval, PaymentDispute, DisputeNote, WalletTransaction,
+    VaultFolder, DocumentVersion, Report,
 )
 from .models_cms import (
     HomePage, ServiceCard, Testimonial, FAQ, BlogPost, ContactInfo, SiteSettings,
@@ -148,16 +149,20 @@ class AuditLogAdmin(admin.ModelAdmin):
 @admin.register(ClientDocument)
 class ClientDocumentAdmin(admin.ModelAdmin):
     list_display = [
-        "client",
         "title",
+        "client",
+        "folder",
+        "document_source",
         "document_type",
         "is_visible_to_client",
+        "scan_status",
         "uploaded_by",
         "created_at",
     ]
-    list_filter = ["document_type", "is_visible_to_client", "uploaded_by"]
-    search_fields = ["client__user__email", "title", "description"]
-    raw_id_fields = ["client", "uploaded_by"]
+    list_filter = ["document_source", "document_type", "is_visible_to_client", "scan_status", "uploaded_by", "client"]
+    search_fields = ["title", "description", "client__company", "client__user__email", "google_drive_id"]
+    raw_id_fields = ["client", "folder", "uploaded_by"]
+    readonly_fields = ["download_count", "last_accessed", "created_at", "updated_at"]
 
 
 @admin.register(ProRataApproval)
@@ -220,6 +225,33 @@ class WalletTransactionAdmin(admin.ModelAdmin):
     raw_id_fields = ["client", "processed_by"]
     readonly_fields = ["created_at", "updated_at"]
     date_hierarchy = "created_at"
+
+
+@admin.register(VaultFolder)
+class VaultFolderAdmin(admin.ModelAdmin):
+    list_display = ["name", "client", "project", "parent", "created_at"]
+    list_filter = ["client", "project"]
+    search_fields = ["name", "project", "client__company"]
+    raw_id_fields = ["parent", "client"]
+    readonly_fields = ["created_at", "updated_at"]
+
+
+@admin.register(DocumentVersion)
+class DocumentVersionAdmin(admin.ModelAdmin):
+    list_display = ["document", "version_number", "file_name", "file_size", "uploaded_by", "created_at"]
+    list_filter = ["version_number", "uploaded_by"]
+    search_fields = ["file_name", "document__title", "hash"]
+    raw_id_fields = ["document", "uploaded_by"]
+    readonly_fields = ["created_at", "updated_at"]
+
+
+@admin.register(Report)
+class ReportAdmin(admin.ModelAdmin):
+    list_display = ["title", "meeting", "status", "created_at"]
+    list_filter = ["status"]
+    search_fields = ["title", "description", "meeting__client__company"]
+    raw_id_fields = ["meeting"]
+    readonly_fields = ["created_at", "updated_at"]
 
 
 # CMS Admin Registration
