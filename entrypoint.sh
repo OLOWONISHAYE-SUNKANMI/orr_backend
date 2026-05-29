@@ -6,6 +6,10 @@ set -e
 echo "Applying database migrations..."
 python manage.py migrate --noinput || echo "Migrations failed, continuing to start server..."
 
+# Collect static files automatically on startup
+echo "Collecting static files..."
+python manage.py collectstatic --noinput || echo "Static collection failed, continuing..."
+
 echo "Starting Gunicorn on port ${PORT:-8080}..."
 echo "Current environment configuration active."
 exec gunicorn core.wsgi:application \
