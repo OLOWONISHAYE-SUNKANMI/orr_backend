@@ -145,6 +145,48 @@ class AccountSettingsView(APIView):
         from client.models import Profile
         profile, _ = Profile.objects.get_or_create(user=user)
 
+        profile_pic_url = None
+        if profile.profile_pic:
+            try:
+                name = profile.profile_pic.name
+                if name.startswith('http://') or name.startswith('https://'):
+                    profile_pic_url = name
+                else:
+                    from django.conf import settings
+                    bucket_name = getattr(settings, 'GS_BUCKET_NAME', 'orr-solutions-media')
+                    default_storage = getattr(settings, 'STORAGES', {}).get('default', {}).get('BACKEND', '')
+                    if 'GoogleCloudStorage' in default_storage or 'gcloud' in str(getattr(settings, 'DEFAULT_FILE_STORAGE', '')):
+                        profile_pic_url = f"https://storage.googleapis.com/{bucket_name}/{name}"
+                    else:
+                        media_url = getattr(settings, 'MEDIA_URL', '/media/')
+                        profile_pic_url = f"{media_url.rstrip('/')}/{name}"
+            except Exception:
+                try:
+                    profile_pic_url = profile.profile_pic.url
+                except Exception:
+                    pass
+
+        bio_attachment_url = None
+        if profile.bio_attachment:
+            try:
+                name = profile.bio_attachment.name
+                if name.startswith('http://') or name.startswith('https://'):
+                    bio_attachment_url = name
+                else:
+                    from django.conf import settings
+                    bucket_name = getattr(settings, 'GS_BUCKET_NAME', 'orr-solutions-media')
+                    default_storage = getattr(settings, 'STORAGES', {}).get('default', {}).get('BACKEND', '')
+                    if 'GoogleCloudStorage' in default_storage or 'gcloud' in str(getattr(settings, 'DEFAULT_FILE_STORAGE', '')):
+                        bio_attachment_url = f"https://storage.googleapis.com/{bucket_name}/{name}"
+                    else:
+                        media_url = getattr(settings, 'MEDIA_URL', '/media/')
+                        bio_attachment_url = f"{media_url.rstrip('/')}/{name}"
+            except Exception:
+                try:
+                    bio_attachment_url = profile.bio_attachment.url
+                except Exception:
+                    pass
+
         return Response(
             {
                 "user": {
@@ -159,8 +201,8 @@ class AccountSettingsView(APIView):
                     "country": profile.country,
                     "zip_code": profile.zip_code,
                     "bio": profile.bio_text,
-                    "profile_pic": profile.profile_pic.url if profile.profile_pic else None,
-                    "bio_attachment": profile.bio_attachment.url if profile.bio_attachment else None,
+                    "profile_pic": profile_pic_url,
+                    "bio_attachment": bio_attachment_url,
                     "timezone": profile.timezone,
                 },
             },
