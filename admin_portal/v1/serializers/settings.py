@@ -61,6 +61,7 @@ class AdminRoleSerializer(serializers.ModelSerializer):
 class AdminProfileSerializer(serializers.ModelSerializer):
     """Admin profile serializer"""
 
+    user_id = serializers.IntegerField(source="user.id", read_only=True)
     username = serializers.CharField(source="user.username", read_only=True)
     email = serializers.CharField(source="user.email", read_only=True)
     first_name = serializers.CharField(source="user.first_name", read_only=True)
@@ -74,6 +75,7 @@ class AdminProfileSerializer(serializers.ModelSerializer):
         model = AdminProfile
         fields = [
             "id",
+            "user_id",
             "username",
             "email",
             "first_name",
