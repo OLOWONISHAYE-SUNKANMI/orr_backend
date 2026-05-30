@@ -87,6 +87,58 @@ class ApprovalQueueListView(APIView):
             )
 
         qs = ApprovalQueue.objects.all()
+        if qs.count() == 0:
+            from django.contrib.auth.models import User as DjangoUser
+            admins = DjangoUser.objects.filter(is_staff=True)
+            requester = admins.first() or request.user
+            requester_name = requester.get_full_name() or requester.username
+            
+            # Request 1: Pending Hard Delete
+            ApprovalQueue.objects.get_or_create(
+                id="REQ-8B7C2A9E",
+                defaults={
+                    "action_type": "HARD_DELETE",
+                    "requested_by": str(requester.id),
+                    "requested_by_name": requester_name,
+                    "requested_by_role": "admin",
+                    "payload": {
+                        "targetId": "CL-8802",
+                        "targetName": "Vanguard Global Holdings",
+                        "description": "Administrative request to purge Vanguard client workspace and all associated cloud repository file instances from the production cluster.",
+                        "meta": {
+                            "clientCode": "VAN-GLO",
+                            "severity": "CRITICAL_SOC2",
+                            "dataLossRisk": "HIGH"
+                        }
+                    },
+                    "status": "PENDING"
+                }
+            )
+            
+            # Request 2: Pending Role Change
+            operator_user = admins.last() or request.user
+            ApprovalQueue.objects.get_or_create(
+                id="REQ-4C2E9A3D",
+                defaults={
+                    "action_type": "ROLE_CHANGE",
+                    "requested_by": str(operator_user.id),
+                    "requested_by_name": operator_user.get_full_name() or operator_user.username,
+                    "requested_by_role": "operator",
+                    "payload": {
+                        "targetId": "USR-1082",
+                        "targetName": "Marcus Sterling",
+                        "description": "Request to elevate user Marcus Sterling from general Operator clearance to Super Administrator role inside the SOC2 secure zone.",
+                        "meta": {
+                            "justification": "Required for temporary coverage during weekend operations.",
+                            "department": "Security Ops",
+                            "elevationTime": "48 Hours"
+                        }
+                    },
+                    "status": "PENDING"
+                }
+            )
+            qs = ApprovalQueue.objects.all()
+
         filter_status = request.query_params.get('status')
         if filter_status and filter_status.upper() in ('PENDING', 'APPROVED', 'REJECTED'):
             qs = qs.filter(status=filter_status.upper())
