@@ -4,6 +4,8 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     ai_oversight,
     analytics,
+    approval_queue,
+    audit_security,
     auth,
     auto_reply,
     behavior_analytics,
@@ -28,6 +30,7 @@ from .views import (
     sector_insights,
     settings,
     subscriptions,
+    system_config,
     system_health,
     ticket,
     vault,
@@ -583,6 +586,23 @@ vault_patterns = [
     path("activity/", vault.VaultActivityListView.as_view(), name="vault-activity-list"),
 ]
 
+approval_queue_patterns = [
+    path("", approval_queue.ApprovalQueueListView.as_view(), name="approval-queue-list"),
+    path("<str:req_id>/decide/", approval_queue.ApprovalQueueDecideView.as_view(), name="approval-queue-decide"),
+]
+
+audit_security_patterns = [
+    path("logs/", audit_security.SecurityAuditLogListView.as_view(), name="security-audit-logs"),
+    path("sessions/", audit_security.AdminSessionListView.as_view(), name="admin-sessions-list"),
+    path("sessions/<str:session_id>/", audit_security.AdminSessionRevokeView.as_view(), name="admin-session-revoke"),
+    path("revoke-all/", audit_security.AdminRevokeAllSessionsView.as_view(), name="admin-revoke-all-sessions"),
+]
+
+system_config_patterns = [
+    path("config/", system_config.SystemConfigView.as_view(), name="system-config"),
+    path("backup/", system_config.SystemBackupView.as_view(), name="system-backup"),
+]
+
 urlpatterns = [
     path("vault/", include(vault_patterns)),
     path("auth/", include(auth_patterns)),
@@ -612,4 +632,8 @@ urlpatterns = [
     path("invoicing/", include(invoicing_patterns)),
     path("payment-disputes/", include(payment_disputes_patterns)),
     path("cms/", include(cms_patterns)),
+    path("approvals/queue/", include(approval_queue_patterns)),
+    path("audit/", include(audit_security_patterns)),
+    path("security/", include(audit_security_patterns)),
+    path("system/", include(system_config_patterns)),
 ]
