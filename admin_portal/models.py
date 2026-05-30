@@ -33,6 +33,12 @@ class AdminRole(models.Model):
     can_view_billing = models.BooleanField(default=False)
     can_manage_settings = models.BooleanField(default=False)
     can_view_ai_logs = models.BooleanField(default=False)
+    # Extended RBAC permissions
+    can_manage_roles = models.BooleanField(default=False)
+    can_view_audit_logs = models.BooleanField(default=False)
+    can_view_security_events = models.BooleanField(default=False)
+    can_approve_sensitive_actions = models.BooleanField(default=False)
+    can_configure_system = models.BooleanField(default=False)
 
     def __str__(self):
         return self.get_name_display()
@@ -515,6 +521,110 @@ class AuditLog(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.action} - {self.timestamp}"
+
+
+class SecurityAuditLog(models.Model):
+    """Structured security audit trail for enterprise compliance"""
+
+    CATEGORY_CHOICES = [
+        ('AUTHENTICATION', 'Authentication'),
+        ('DUAL_APPROVALS', 'Dual Approvals'),
+        ('DELETIONS', 'Deletions'),
+        ('SYSTEMS', 'Systems'),
+        ('ROLE_CHANGES', 'Role Changes'),
+    ]
+
+    event_timestamp = models.DateTimeField(auto_now_add=True)
+    event_category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
+    event_name = models.CharField(max_length=100)
+    user_id = models.CharField(max_length=50)
+    user_email = models.CharField(max_length=150)
+    ip_address = models.GenericIPAddressField()
+    user_agent = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ['-event_timestamp']
+        indexes = [
+            models.Index(fields=['-event_timestamp'], name='secaudit_timestamp_idx'),
+            models.Index(fields=['event_category'], name='secaudit_category_idx'),
+            models.Index(fields=['user_id'], name='secaudit_user_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.event_name} - {self.user_email} - {self.event_timestamp}"
+
+
+class ApprovalQueue(models.Model):
+    """Dual-approval workflow queue for sensitive administrative actions"""
+
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+    ]
+
+    id = models.CharField(max_length=50, primary_key=True)
+    action_type = models.CharField(max_length=100)  # e.g. CLIENT_HARD_DELETE, ROLE_ELEVATION
+    requested_by = models.CharField(max_length=50)  # Admin User ID or username
+    requested_by_name = models.CharField(max_length=150, blank=True)
+    requested_by_role = models.CharField(max_length=50, blank=True)
+    requested_at = models.DateTimeField(auto_now_add=True)
+    payload = models.JSONField()  # Serialised original request data
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    decided_by = models.CharField(max_length=50, blank=True)
+    decided_by_name = models.CharField(max_length=150, blank=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-requested_at']
+        indexes = [
+            models.Index(fields=['status'], name='approvalqueue_status_idx'),
+            models.Index(fields=['-requested_at'], name='approvalqueue_requested_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.id} - {self.action_type} - {self.status}"
+
+
+class AdminSession(models.Model):
+    """Active admin session tracking for security monitoring"""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='admin_sessions')
+    session_key = models.CharField(max_length=255, unique=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    location = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_activity = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['-last_activity']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.session_key[:12]}..."
+
+
+class SystemConfig(models.Model):
+    """System-level security and operational configuration flags"""
+
+    mfa_enforced = models.BooleanField(default=True)
+    ip_bounds_restricted = models.BooleanField(default=False)
+    strict_interceptors = models.BooleanField(default=True)
+    maintenance_mode = models.BooleanField(default=False)
+    verbose_logging = models.BooleanField(default=False)
+    session_timeout = models.CharField(max_length=10, default='1h')
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'System Configuration'
+        verbose_name_plural = 'System Configurations'
+
+    def __str__(self):
+        return f"SystemConfig (mfa={self.mfa_enforced}, ip_restrict={self.ip_bounds_restricted})"
 
 
 class VaultFolder(Audit):
