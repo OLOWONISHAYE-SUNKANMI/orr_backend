@@ -25,8 +25,9 @@ logger = logging.getLogger(__name__)
 def ticket_created_notification(sender, instance, created, **kwargs):
     """Create notification and auto-reply when new ticket is created"""
     if created and not str(instance.ticket_id).startswith('tmp-'):
-        # Send automatic reply to client
-        AutoReplyService.send_initial_auto_reply(instance)
+        # Send automatic reply to client asynchronously
+        import threading
+        threading.Thread(target=AutoReplyService.send_initial_auto_reply, args=(instance,)).start()
         
         # Notify assigned admin if any
         if instance.assigned_to:
@@ -102,6 +103,8 @@ def create_admin_profile(sender, instance, created, **kwargs):
         )
 
 
+import threading
+
 @receiver(post_save, sender=TicketMessage)
 def ticket_message_auto_reply(sender, instance, created, **kwargs):
     """Handle auto-reply and notifications for ticket messages"""
@@ -111,8 +114,8 @@ def ticket_message_auto_reply(sender, instance, created, **kwargs):
         
         # If message is from a client
         if hasattr(instance.sender, 'client_profile'):
-            # 1. Notify admin of new client message
-            MessageEmailService.send_admin_new_message_email(instance.ticket, instance)
+            # 1. Notify admin of new client message asynchronously
+            threading.Thread(target=MessageEmailService.send_admin_new_message_email, args=(instance.ticket, instance)).start()
             
             # 2. Schedule escalation check (e.g., 4 hours = 240 minutes)
             check_message_escalation_task.apply_async(
@@ -175,3 +178,18 @@ def sync_wallet_balance(sender, instance, created, **kwargs):
             object_id=str(wallet.pk),
             description=f"Wallet balance adjusted to {wallet.balance} via {instance.transaction_type} for {client_user.email}",
         )
+
+        # Send wallet top-up email notification (21-wallet-topup.html)
+        if instance.transaction_type in ('deposit', 'credit', 'topup', 'top_up'):
+            try:
+                from .orr_email_service import ORREmailService
+                ORREmailService.send_wallet_topup(
+                    recipient_email=client_user.email,
+                    transaction_id=str(instance.id),
+                    added_amount=str(instance.amount),
+                    currency_symbol='$',
+                    new_balance=str(instance.balance_after),
+                    wallet_url='https://orr.solutions/wallet',
+                )
+            except Exception as e:
+                logger.error(f"Failed to send wallet top-up email: {e}")

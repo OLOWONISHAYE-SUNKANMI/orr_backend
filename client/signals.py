@@ -107,3 +107,69 @@ def create_profiles(sender, instance, created, **kwargs):
                 company="N/A",  # or get from registration data
                 primary_pillar="strategic",  # default
             )
+
+
+# ═══════════════════════════════════════════════════════════
+# CLIENT REQUEST SIGNALS
+# ═══════════════════════════════════════════════════════════
+
+from .models import ClientRequest
+
+
+@receiver(post_save, sender=ClientRequest)
+def handle_client_request_post_save(sender, instance, created, **kwargs):
+    """
+    Auto-generate request_id on creation.
+    Notify admins when a request is submitted.
+    Create Activity records for the client.
+    """
+    if created:
+        # Auto-generate request_id if not set
+        if not instance.request_id:
+            instance.request_id = f"ORR-REQ-{instance.pk:06d}"
+            ClientRequest.objects.filter(pk=instance.pk).update(
+                request_id=instance.request_id
+            )
+
+    # Notify admins when status changes to 'submitted'
+    update_fields = kwargs.get('update_fields')
+    if update_fields and 'status' in update_fields and instance.status == 'submitted':
+        # Create activity for the client
+        try:
+            Activity.objects.create(
+                user=instance.submitted_by,
+                activity_type='USER',
+                title='Request Submitted',
+                message=f'Your request "{instance.request_title}" ({instance.request_id}) has been submitted for review.',
+                metadata={
+                    'request_id': instance.request_id,
+                    'request_pk': instance.pk,
+                }
+            )
+        except Exception:
+            pass
+
+        # Notify admin users
+        try:
+            admin_profiles = AdminProfile.objects.exclude(role__name="content_editor")
+            admin_users = [p.user for p in admin_profiles if p.user.is_active]
+            for admin in admin_users:
+                notify_user(
+                    admin,
+                    "New Client Request",
+                    f"New request {instance.request_id}: {instance.request_title}",
+                    ["inapp"],
+                    {
+                        "type": "client_request",
+                        "context": {
+                            "request_id": instance.request_id,
+                            "request_title": instance.request_title,
+                            "client_name": instance.client.company if instance.client else "Unknown",
+                            "urgency": instance.urgency,
+                            "sensitivity": instance.sensitivity_level,
+                        },
+                    },
+                )
+        except Exception:
+            pass
+

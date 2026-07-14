@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Error Alert - ORR Solutions</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0d223c;
+            color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #204460;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid #ef4444;
+        }
+
+        .header {
+            background-color: #ef4444;
+            padding: 30px 20px;
+            text-align: center;
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .footer {
+            background-color: #071626;
+            padding: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .error-details {
+            background-color: #0A1F30;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 25px 0;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 13px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 32px;
+            background-color: #ef4444;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 700;
+            margin-top: 10px;
+            text-transform: uppercase;
+        }
+
+        h2 {
+            color: #ffffff;
+            font-size: 24px;
+            margin-bottom: 16px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        p {
+            line-height: 1.6;
+            color: #cbd5e1;
+            margin-bottom: 20px;
+        }
+
+        .label { color: #ef4444; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; font-size: 11px; }
+
+        @media only screen and (max-width: 600px) {
+            .container {
+                border-radius: 0;
+            }
+
+            .content {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+            <td align="center" style="padding: 20px 0; background-color: #0d223c;">
+                <table class="container" border="0" cellspacing="0" cellpadding="0">
+                    <!-- Header -->
+                    <tr>
+                        <td class="header">
+                            <img src="https://res.cloudinary.com/depeqzb6z/image/upload/v1764395173/logo_qqpk6j.svg"
+                                alt="ORR Solutions" width="120"
+                                style="display: block; margin: 0 auto; max-width: 100%;">
+                        </td>
+                    </tr>
+
+                    <!-- Main Content -->
+                    <tr>
+                        <td class="content">
+                            <h2>Critical System Error</h2>
+                            <p>An automated workflow has encountered a fatal error. Immediate intervention may be required to restore service.</p>
+
+                            <div class="error-details">
+                                <div class="label">Workflow ID</div>
+                                <div style="color: #ffffff; margin-bottom: 15px;">{{workflow_id}}</div>
+
+                                <div class="label">Error Message</div>
+                                <div style="color: #fca5a5; margin-bottom: 15px;">{{error_message}}</div>
+
+                                <div class="label">Timestamp</div>
+                                <div style="color: #ffffff;">{{error_timestamp}}</div>
+                            </div>
+
+                            <div style="text-align: center;">
+                                <a href="{{error_logs_url}}" class="btn">Inspect Logs</a>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td class="footer">
+                            <p style="color: #ef4444; font-weight: bold;">AUTOMATED SYSTEM ALERT</p>
+                            <p>&copy; 2026 ORR Solutions Infrastructure Team.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

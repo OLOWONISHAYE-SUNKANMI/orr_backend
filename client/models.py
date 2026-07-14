@@ -227,8 +227,16 @@ class Project(Audit):
         ('cancelled', 'Cancelled'),
     ]
 
+    SOURCE_CHOICES = (
+        ("client_portal", "Client Portal"),
+        ("internally_sourced", "Internally Sourced"),
+    )
+
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='projects')
-    name = models.CharField(max_length=200) 
+    name = models.CharField(max_length=255) 
+    source = models.CharField(
+        max_length=50, choices=SOURCE_CHOICES, default="client_portal"
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     start_date = models.DateField(default=timezone.now)
     end_date = models.DateField(null=True, blank=True)
@@ -280,6 +288,358 @@ class Transaction(Audit):
                 self.wallet.balance -= self.amount
             self.wallet.save()
         super().save(*args, **kwargs)
+
+
+# ═══════════════════════════════════════════════════════════
+# CLIENT REQUEST / PROBLEM BRIEF
+# ═══════════════════════════════════════════════════════════
+
+class ClientRequest(Audit):
+    """
+    Client Problem / Request Brief Form.
+    Main client-side intake form used to capture the specific issue, question,
+    objective, opportunity, or business problem the client wants ORR to assess.
+
+    One client may submit multiple requests over time. A request may later become
+    a meeting, a project, several projects, a rejected request, or part of a
+    retainer workstream.
+    """
+
+    # ── Status Choices (from PDF: drives client visibility and internal workflow) ──
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('submitted', 'Submitted'),
+        ('pending_orr_review', 'Pending ORR Review'),
+        ('clarification_requested', 'Clarification Requested'),
+        ('approved_for_meeting', 'Approved for Meeting'),
+        ('approved_for_pm_assignment', 'Approved for PM Assignment'),
+        ('converted_to_project', 'Converted to Project'),
+        ('rejected', 'Rejected'),
+        ('closed', 'Closed'),
+        ('archived', 'Archived'),
+    ]
+
+    # ── Request Type Choices ──
+    REQUEST_TYPE_CHOICES = [
+        ('advice', 'I need advice'),
+        ('written_review', 'I need a written review or report'),
+        ('operational_problem', 'I need help solving an operational problem'),
+        ('compliance_regulatory', 'I need compliance or regulatory support'),
+        ('it_systems', 'I need IT / systems support'),
+        ('land_agriculture_environment', 'I need land, agriculture, or environmental support'),
+        ('ongoing_support', 'I need ongoing support'),
+        ('not_sure', 'I am not sure'),
+    ]
+
+    # ── Service Area Choices ──
+    SERVICE_AREA_CHOICES = [
+        ('strategy_advisory_compliance', 'Strategy Advisory & Compliance'),
+        ('operational_systems_infrastructure', 'Operational Systems & Infrastructure'),
+        ('living_systems_regeneration', 'Living Systems Regeneration'),
+        ('not_sure', 'Not sure'),
+    ]
+
+    # ── Urgency Choices ──
+    URGENCY_CHOICES = [
+        ('normal', 'Normal'),
+        ('priority', 'Priority'),
+        ('urgent', 'Urgent'),
+        ('critical', 'Critical'),
+    ]
+
+    # ── Budget Expectation Choices ──
+    BUDGET_CHOICES = [
+        ('not_sure', 'Not sure'),
+        ('small_initial_review', 'Small initial review only'),
+        ('fixed_project_budget', 'Fixed project budget'),
+        ('retainer_support', 'Retainer support'),
+        ('prefer_to_discuss', 'I prefer to discuss'),
+    ]
+
+    # ── Sensitivity Level Choices ──
+    SENSITIVITY_CHOICES = [
+        ('standard', 'Standard'),
+        ('confidential', 'Confidential'),
+        ('highly_confidential', 'Highly Confidential'),
+        ('restricted', 'Restricted / commercially sensitive'),
+    ]
+
+    # ── Preferred Next Step Choices ──
+    NEXT_STEP_CHOICES = [
+        ('schedule_consultation', 'Schedule a first consultation'),
+        ('receive_feedback', 'Receive initial feedback from ORR'),
+        ('upload_documents', 'Upload documents first'),
+        ('discuss_pricing', 'Discuss pricing'),
+        ('not_sure', 'I am not sure'),
+    ]
+
+    # ── System Linkage Fields ──
+    SOURCE_CHOICES = (
+        ("client_portal", "Client Portal"),
+        ("internally_sourced", "Internally Sourced"),
+    )
+
+    request_id = models.CharField(
+        max_length=20, unique=True, blank=True,
+        help_text="Auto-generated: ORR-REQ-000001"
+    )
+    client = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name='requests',
+        help_text="Linked Client ID. Client should not manually enter this."
+    )
+    source = models.CharField(
+        max_length=50, choices=SOURCE_CHOICES, default="client_portal"
+    )
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name='submitted_requests',
+        help_text="User account ID of the person submitting the request."
+    )
+    submission_date = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Auto-recorded on submission."
+    )
+
+    # ── Request Basics ──
+    request_title = models.CharField(
+        max_length=300,
+        help_text="Short title for the request."
+    )
+    main_request_type = models.CharField(
+        max_length=50, choices=REQUEST_TYPE_CHOICES,
+        help_text="What do you need ORR to help with?"
+    )
+    orr_service_area = models.CharField(
+        max_length=50, choices=SERVICE_AREA_CHOICES, blank=True,
+        help_text="Which ORR service area best fits? If 'Not sure', Admin/PM can classify later."
+    )
+
+    # ── Problem Detail ──
+    short_description = models.TextField(
+        help_text="Core intake field. Feeds Admin review and AI project summary generation."
+    )
+    desired_outcome = models.TextField(
+        help_text="What outcome the client is hoping to achieve."
+    )
+    background_context = models.TextField(
+        blank=True,
+        help_text="Background information to help ORR understand the situation."
+    )
+    main_question = models.TextField(
+        blank=True,
+        help_text="Useful for advisory and strategy requests."
+    )
+    current_challenge = models.TextField(
+        blank=True,
+        help_text="Helps identify urgency, risk, and next action."
+    )
+    actions_taken = models.TextField(
+        blank=True,
+        help_text="Prevents duplication and gives PM context."
+    )
+    decision_needed = models.TextField(
+        blank=True,
+        help_text="Useful for converting request into project scope."
+    )
+
+    # ── Scope & Expectations ──
+    expected_support = models.JSONField(
+        default=list, blank=True,
+        help_text="Multi-select: Initial consultation, Written advice, Document review, etc."
+    )
+    expected_deliverable = models.JSONField(
+        default=list, blank=True,
+        help_text="Multi-select: Meeting summary, Advisory note, Written report, etc."
+    )
+    urgency = models.CharField(
+        max_length=10, choices=URGENCY_CHOICES, default='normal',
+        help_text="How urgent is this request?"
+    )
+    target_date = models.DateField(
+        null=True, blank=True,
+        help_text="Is there a deadline or target date?"
+    )
+    budget_expectation = models.CharField(
+        max_length=30, choices=BUDGET_CHOICES, blank=True,
+        help_text="Do you already have a budget expectation for this request?"
+    )
+
+    # ── Sector / Domain ──
+    sector = models.JSONField(
+        default=list, blank=True,
+        help_text="Multi-select + Other: Agriculture, IT / Software, Regulatory Affairs, etc."
+    )
+    jurisdiction = models.TextField(
+        blank=True,
+        help_text="Which country or jurisdiction does this request concern?"
+    )
+    location = models.TextField(
+        blank=True,
+        help_text="Location of the business, project, land, asset, or operation."
+    )
+
+    # ── Documents ──
+    has_documents = models.BooleanField(
+        default=False,
+        help_text="Do you have documents that may help ORR assess this request?"
+    )
+
+    # ── Confidentiality ──
+    sensitivity_level = models.CharField(
+        max_length=30, choices=SENSITIVITY_CHOICES, default='standard',
+        help_text="How sensitive is this request?"
+    )
+    confidentiality_agreed = models.BooleanField(
+        default=False,
+        help_text="Sensitive Information Notice acknowledgement."
+    )
+
+    # ── Communication Preferences ──
+    preferred_next_step = models.CharField(
+        max_length=30, choices=NEXT_STEP_CHOICES, blank=True,
+        help_text="What would you prefer as the next step?"
+    )
+    preferred_contact_method = models.JSONField(
+        default=list, blank=True,
+        help_text="Multi-select: Portal message, Email, Phone, Video meeting, WhatsApp."
+    )
+    preferred_meeting_language = models.JSONField(
+        default=list, blank=True,
+        help_text="Multi-select: English, Maltese, Italian, French, Spanish, Other."
+    )
+
+    # ── Compliance / Declaration ──
+    confirm_accuracy = models.BooleanField(
+        default=False,
+        help_text="I confirm that the information provided is accurate."
+    )
+    confirm_authority = models.BooleanField(
+        default=False,
+        help_text="I confirm that I am authorised to submit this request."
+    )
+    confirm_no_emergency = models.BooleanField(
+        default=False,
+        help_text="I understand this does not create an emergency support obligation."
+    )
+    ai_processing_notice = models.BooleanField(
+        default=False,
+        help_text="I understand ORR may use secure internal AI-assisted tools."
+    )
+
+    # ── Status ──
+    status = models.CharField(
+        max_length=30, choices=STATUS_CHOICES, default='draft',
+        help_text="Status drives client visibility and internal workflow."
+    )
+
+    # ── Internal Review (Not visible to client) ──
+    admin_classification = models.TextField(
+        blank=True,
+        help_text="Admin can reclassify service area, urgency, sensitivity, and next step."
+    )
+    admin_review_notes = models.TextField(blank=True)
+    assigned_pm = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='assigned_requests',
+        help_text="If request is approved, Admin can assign client/request to PM."
+    )
+    converted_project = models.ForeignKey(
+        'pm.PMProject', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='source_requests',
+        help_text="One request may become one or more projects."
+    )
+
+    # ── Audit Trail ──
+    last_updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='updated_requests',
+        help_text="Store user ID of last editor."
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Client Request'
+        verbose_name_plural = 'Client Requests'
+        indexes = [
+            models.Index(fields=['client', '-created_at'], name='clientreq_client_created_idx'),
+            models.Index(fields=['status'], name='clientreq_status_idx'),
+            models.Index(fields=['assigned_pm'], name='clientreq_pm_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.request_id} - {self.request_title}"
+
+
+class ClientRequestDocument(Audit):
+    """
+    Documents uploaded with a Client Request.
+    Files should be linked to Request ID and Client ID.
+    Upload can also happen later through the Client Vault.
+    """
+    request = models.ForeignKey(
+        ClientRequest, on_delete=models.CASCADE, related_name='documents'
+    )
+    file = models.FileField(
+        upload_to='request_documents/',
+        help_text="Upload documents relevant to this request."
+    )
+    file_name = models.CharField(max_length=300, blank=True)
+    file_size = models.PositiveIntegerField(null=True, blank=True)
+    description = models.TextField(
+        blank=True,
+        help_text="Briefly describe what each uploaded document is."
+    )
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True
+    )
+    # Optional link to vault document
+    vault_document = models.ForeignKey(
+        ClientDocument, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='request_links',
+        help_text="Link to existing Client Vault document."
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        if self.file and not self.file_name:
+            self.file_name = self.file.name
+        if self.file and self.file_size is None:
+            try:
+                self.file_size = self.file.size
+            except Exception:
+                pass
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.file_name} for {self.request.request_id}"
+
+
+class ClientRequestVersion(Audit):
+    """
+    Audit trail: Preserve changes to description, scope, documents,
+    sensitivity, status, and Admin/PM classification.
+    """
+    request = models.ForeignKey(
+        ClientRequest, on_delete=models.CASCADE, related_name='versions'
+    )
+    version_number = models.PositiveIntegerField()
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True
+    )
+    field_changed = models.CharField(max_length=100)
+    old_value = models.TextField(blank=True)
+    new_value = models.TextField(blank=True)
+    change_reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-version_number']
+
+    def __str__(self):
+        return f"{self.request.request_id} v{self.version_number} - {self.field_changed}"
+
+
 # Signals for Wallet Creation
 from django.db.models.signals import post_save
 from django.dispatch import receiver

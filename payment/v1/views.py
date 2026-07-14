@@ -65,8 +65,8 @@ class CreateCheckoutSession(APIView):
         stripe_profile = get_or_create_stripe_customer(request.user)
         customer_id = stripe_profile.stripe_customer_id
 
-        # Handle subscriptions (Monthly or Metered)
-        if plan.billing_type in ["monthly", "metered"]:
+        # Handle subscriptions (Monthly or Metered) and One-time payments
+        if plan.billing_type in ["monthly", "metered", "one_time", "hourly"]:
             try:
                 # Determine mode based on recurring vs one-time (safety check)
                 is_recurring = plan.billing_type in ["monthly", "metered"]

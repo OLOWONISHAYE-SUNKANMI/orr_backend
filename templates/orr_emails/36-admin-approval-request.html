@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Approval Required - ORR Solutions</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0d223c;
+            color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #204460;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(14, 194, 119, 0.1);
+        }
+
+        .header {
+            background-color: #071626;
+            padding: 40px 20px;
+            text-align: center;
+            border-bottom: 2px solid #0EC277;
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .footer {
+            background-color: #071626;
+            padding: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .request-card {
+            background-color: #0A1F30;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 25px 0;
+            border: 1px solid rgba(14, 194, 119, 0.2);
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 28px;
+            background-color: #0EC277;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 700;
+            margin: 10px 5px;
+            text-transform: uppercase;
+            font-size: 13px;
+        }
+
+        .btn-secondary {
+            background-color: #334155;
+        }
+
+        h2 {
+            color: #ffffff;
+            font-size: 24px;
+            margin-bottom: 16px;
+            font-weight: 700;
+        }
+
+        p {
+            line-height: 1.6;
+            color: #cbd5e1;
+            margin-bottom: 20px;
+        }
+
+        .meta-label { color: #94a3b8; font-size: 11px; text-transform: uppercase; margin-bottom: 4px; }
+        .meta-value { color: #ffffff; font-weight: 600; margin-bottom: 15px; }
+
+        @media only screen and (max-width: 600px) {
+            .container { border-radius: 0; }
+            .content { padding: 30px 20px; }
+            .btn { width: 100%; margin: 10px 0; box-sizing: border-box; text-align: center; }
+        }
+    </style>
+</head>
+
+<body>
+    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+            <td align="center" style="padding: 20px 0; background-color: #0d223c;">
+                <table class="container" border="0" cellspacing="0" cellpadding="0">
+                    <!-- Header -->
+                    <tr>
+                        <td class="header">
+                            <img src="https://res.cloudinary.com/depeqzb6z/image/upload/v1764395173/logo_qqpk6j.svg"
+                                alt="ORR Solutions" width="120"
+                                style="display: block; margin: 0 auto; max-width: 100%;">
+                        </td>
+                    </tr>
+
+                    <!-- Main Content -->
+                    <tr>
+                        <td class="content">
+                            <h2>Approval Requested</h2>
+                            <p>An action requiring administrative oversight has been initiated. As part of our **Dual Approval Logic**, your authorization is required to proceed.</p>
+
+                            <div class="request-card">
+                                <div class="meta-label">Action Requested</div>
+                                <div class="meta-value">{{action_name}}</div>
+                                
+                                <div class="meta-label">Initiated By</div>
+                                <div class="meta-value">{{initiator_name}}</div>
+
+                                <div class="meta-label">Risk Level</div>
+                                <div class="meta-value"><span style="color: #f59e0b;">{{risk_level}}</span></div>
+
+                                <div class="meta-label">Details</div>
+                                <div style="color: #cbd5e1; font-size: 14px; border-left: 3px solid #0EC277; padding-left: 15px; font-style: italic;">"{{action_description}}"</div>
+                            </div>
+
+                            <div style="text-align: center;">
+                                <a href="{{approve_url}}" class="btn">Approve Action</a>
+                                <a href="{{deny_url}}" class="btn btn-secondary">Deny Request</a>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td class="footer">
+                            <p style="color: #0EC277; font-weight: bold;">GOVERNANCE PROTOCOL ACTIVE</p>
+                            <p>&copy; 2026 ORR Solutions Admin Suite.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

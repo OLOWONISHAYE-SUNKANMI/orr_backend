@@ -89,13 +89,11 @@ class LoginSerializer(serializers.Serializer):
 
     def _get_user_role_info(self, user):
         """Get user role and permissions"""
-        if hasattr(user, "admin_profile") and user.admin_profile.role:
+        if hasattr(user, "admin_profile"):
             role = user.admin_profile.role
-            return {
-                "user_type": "admin",
-                "role_name": role.name,
-                "role_display": role.get_name_display(),
-                "permissions": {
+            permissions = {}
+            if role:
+                permissions = {
                     "can_manage_users": role.can_manage_users,
                     "can_view_all_clients": role.can_view_all_clients,
                     "can_edit_clients": role.can_edit_clients,
@@ -107,6 +105,22 @@ class LoginSerializer(serializers.Serializer):
                     "can_view_billing": role.can_view_billing,
                     "can_manage_settings": role.can_manage_settings,
                     "can_view_ai_logs": role.can_view_ai_logs,
+                }
+            return {
+                "user_type": "admin",
+                "role_name": role.name if role else None,
+                "role_display": role.get_name_display() if role else None,
+                "is_onboarding_complete": user.admin_profile.is_onboarding_complete,
+                "permissions": permissions,
+            }
+        elif hasattr(user, "consultant"):
+            consultant = user.consultant
+            return {
+                "user_type": "consultant",
+                "consultant_number": consultant.consultant_number,
+                "status": consultant.status,
+                "permissions": {
+                    "can_access_portal": True,
                 },
             }
         elif hasattr(user, "profile") or hasattr(user, "client_profile"):

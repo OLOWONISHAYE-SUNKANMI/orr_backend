@@ -137,13 +137,13 @@ class GoogleService:
 
     def _get_scopes(self):
         scopes = {
-            'docs': ['https://www.googleapis.com/auth/documents'],
-            'sheets': ['https://www.googleapis.com/auth/spreadsheets'],
+            'docs': ['https://www.googleapis.com/auth/documents', 'https://www.googleapis.com/auth/drive'],
+            'sheets': ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'],
             'drive': ['https://www.googleapis.com/auth/drive'],
             'calendar': ['https://www.googleapis.com/auth/calendar'],
             'meet': ['https://www.googleapis.com/auth/meetings.space.readonly'],
             'gmail': ['https://www.googleapis.com/auth/gmail.send'],
-            'slides': ['https://www.googleapis.com/auth/presentations']
+            'slides': ['https://www.googleapis.com/auth/presentations', 'https://www.googleapis.com/auth/drive']
         }
         return scopes.get(self.service_type)
 

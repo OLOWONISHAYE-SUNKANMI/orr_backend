@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     ai_oversight,
+    ai_views,
     analytics,
     approval_queue,
     audit_security,
@@ -36,6 +37,7 @@ from .views import (
     vault,
     wallet_logs,
     workspace_usage,
+    consultant_approvals,
 )
 from .. import views_google
 
@@ -97,6 +99,20 @@ client_patterns = [
         name="client-document-detail",
     ),
     path("stats/", client.ClientStatsView.as_view(), name="client-stats"),
+]
+
+# Consultant Approvals URLs
+consultant_approvals_patterns = [
+    path(
+        "",
+        consultant_approvals.ConsultantApprovalsListView.as_view(),
+        name="consultant-approvals-list",
+    ),
+    path(
+        "<int:pk>/action/",
+        consultant_approvals.ConsultantApprovalActionView.as_view(),
+        name="consultant-approval-action",
+    ),
 ]
 
 # Ticket Management URLs
@@ -603,11 +619,46 @@ system_config_patterns = [
     path("backup/", system_config.SystemBackupView.as_view(), name="system-backup"),
 ]
 
+# AI Features URLs
+ai_patterns = [
+    path(
+        "smart-reply/",
+        ai_views.TicketSmartReplyView.as_view(),
+        name="ai-smart-reply",
+    ),
+    path(
+        "meeting-prep/",
+        ai_views.MeetingPrepView.as_view(),
+        name="ai-meeting-prep",
+    ),
+    path(
+        "document-summary/",
+        ai_views.DocumentSummaryView.as_view(),
+        name="ai-document-summary",
+    ),
+    path(
+        "client-insights/",
+        ai_views.ClientInsightsView.as_view(),
+        name="ai-client-insights",
+    ),
+    path(
+        "chat/",
+        ai_views.AIAssistantChatView.as_view(),
+        name="ai-chat",
+    ),
+    path(
+        "dashboard-insights/",
+        ai_views.DashboardInsightsView.as_view(),
+        name="ai-dashboard-insights",
+    ),
+]
+
 urlpatterns = [
     path("vault/", include(vault_patterns)),
     path("auth/", include(auth_patterns)),
     path("dashboard/", include(dashboard_patterns)),
     path("clients/", include(client_patterns)),
+    path("consultant-approvals/", include(consultant_approvals_patterns)),
     path("tickets/", include(ticket_patterns)),
     path("content/", include(content_patterns)),
     path("meetings/", include(meeting_patterns)),
@@ -636,4 +687,5 @@ urlpatterns = [
     path("audit/", include(audit_security_patterns)),
     path("security/", include(audit_security_patterns)),
     path("system/", include(system_config_patterns)),
+    path("ai/", include(ai_patterns)),
 ]

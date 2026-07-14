@@ -52,24 +52,16 @@ class NotificationService:
                 hasattr(settings, "EMAIL_NOTIFICATIONS_ENABLED")
                 and settings.EMAIL_NOTIFICATIONS_ENABLED
             ):
-                subject = (
-                    f"ORR Admin - Ticket {ticket.ticket_id} {notification_type.title()}"
-                )
-                message = render_to_string(
-                    "admin_portal/emails/ticket_notification.html",
-                    {
-                        "ticket": ticket,
-                        "recipient": recipient,
-                        "notification_type": notification_type,
-                    },
-                )
-
-                send_mail(
-                    subject=subject,
-                    message=message,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[recipient.email],
-                    html_message=message,
+                from .orr_email_service import ORREmailService
+                
+                status_display = ticket.get_status_display() if hasattr(ticket, 'get_status_display') else ticket.status
+                ORREmailService.send_status_update(
+                    recipient_email=recipient.email,
+                    form_name=f"Support Ticket: {ticket.subject}",
+                    reference_id=ticket.ticket_id,
+                    current_status=f"{notification_type.title()} — {status_display}",
+                    progress_percentage='—',
+                    tracking_link=f"https://admin.orr.solutions/tickets/{ticket.id}",
                 )
 
         except Exception as e:
@@ -96,23 +88,40 @@ class NotificationService:
                 hasattr(settings, "EMAIL_NOTIFICATIONS_ENABLED")
                 and settings.EMAIL_NOTIFICATIONS_ENABLED
             ):
-                subject = f"ORR Admin - Meeting {notification_type.title()}"
-                message = render_to_string(
-                    "admin_portal/emails/meeting_notification.html",
-                    {
-                        "meeting": meeting,
-                        "recipient": recipient,
-                        "notification_type": notification_type,
-                    },
-                )
-
-                send_mail(
-                    subject=subject,
-                    message=message,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[recipient.email],
-                    html_message=message,
-                )
+                from .orr_email_service import ORREmailService
+                
+                client_name = meeting.client.user.get_full_name() if meeting.client else 'Client'
+                meeting_time_str = ''
+                if meeting.confirmed_datetime:
+                    meeting_time_str = meeting.confirmed_datetime.strftime('%B %d, %Y at %I:%M %p UTC')
+                elif meeting.requested_datetime:
+                    meeting_time_str = meeting.requested_datetime.strftime('%B %d, %Y at %I:%M %p UTC')
+                
+                meeting_link = getattr(meeting, 'meeting_link', '') or 'https://orr.solutions/meetings'
+                meeting_subject = f"Consultation with {client_name}"
+                
+                if notification_type == 'cancelled':
+                    ORREmailService.send_meeting_cancelled(
+                        recipient_email=recipient.email,
+                        meeting_subject=meeting_subject,
+                        meeting_time=meeting_time_str,
+                        cancellation_reason=getattr(meeting, 'cancellation_reason', 'No reason provided.'),
+                    )
+                elif notification_type == 'rescheduled':
+                    ORREmailService.send_meeting_rescheduled(
+                        recipient_email=recipient.email,
+                        meeting_subject=meeting_subject,
+                        old_time=meeting_time_str,
+                        new_time=meeting_time_str,
+                        meeting_link=meeting_link,
+                    )
+                else:
+                    ORREmailService.send_meeting_scheduled(
+                        recipient_email=recipient.email,
+                        meeting_subject=meeting_subject,
+                        meeting_time=meeting_time_str,
+                        meeting_link=meeting_link,
+                    )
 
         except Exception as e:
             logger.error(f"Failed to send meeting notification: {e}")

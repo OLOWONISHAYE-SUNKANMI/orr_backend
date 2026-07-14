@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New from the Blog - ORR Solutions</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0d223c;
+            color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #204460;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(14, 194, 119, 0.1);
+        }
+
+        .header {
+            background-color: #071626;
+            padding: 40px 20px;
+            text-align: center;
+            border-bottom: 3px solid #0EC277;
+        }
+
+        .hero-image {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .footer {
+            background-color: #071626;
+            padding: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 32px;
+            background-color: #0EC277;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 700;
+            margin-top: 20px;
+            text-transform: uppercase;
+        }
+
+        h2 {
+            color: #ffffff;
+            font-size: 26px;
+            margin-bottom: 12px;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        p {
+            line-height: 1.6;
+            color: #cbd5e1;
+            margin-bottom: 20px;
+        }
+
+        .tag {
+            display: inline-block;
+            background-color: rgba(14, 194, 119, 0.1);
+            color: #0EC277;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+        }
+
+        @media only screen and (max-width: 600px) {
+            .container {
+                border-radius: 0;
+            }
+
+            .content {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+            <td align="center" style="padding: 20px 0; background-color: #0d223c;">
+                <table class="container" border="0" cellspacing="0" cellpadding="0">
+                    <!-- Header -->
+                    <tr>
+                        <td class="header">
+                            <img src="https://res.cloudinary.com/depeqzb6z/image/upload/v1764395173/logo_qqpk6j.svg"
+                                alt="ORR Solutions" width="120"
+                                style="display: block; margin: 0 auto; max-width: 100%;">
+                        </td>
+                    </tr>
+
+                    <!-- Hero Image (from Sanity CMS) -->
+                    <tr>
+                        <td>
+                            <img src="{{post_hero_url}}" alt="{{post_title}}" class="hero-image">
+                        </td>
+                    </tr>
+
+                    <!-- Main Content -->
+                    <tr>
+                        <td class="content">
+                            <div class="tag">{{post_category}}</div>
+                            <h2>{{post_title}}</h2>
+                            <p>{{post_excerpt}}</p>
+                            
+                            <div style="color: #94a3b8; font-size: 13px; margin-bottom: 25px;">
+                                By {{author_name}} | {{read_time}} min read
+                            </div>
+
+                            <div style="text-align: center;">
+                                <a href="{{post_url}}" class="btn">Read Full Article</a>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td class="footer">
+                            <p style="margin-bottom: 10px;">You are receiving this because you subscribed to ORR Solutions Insights.</p>
+                            <p><a href="{{unsubscribe_url}}" style="color: #0EC277;">Unsubscribe</a> | <a href="#" style="color: #0EC277;">Manage Preferences</a></p>
+                            <p style="margin-top: 15px;">&copy; 2026 ORR Solutions. All rights reserved.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

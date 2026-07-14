@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Onboarding Complete - ORR Solutions</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0d223c;
+            color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #204460;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(14, 194, 119, 0.1);
+        }
+
+        .header {
+            background-color: #204460;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .content {
+            padding: 0 30px 40px 30px;
+            text-align: center;
+        }
+
+        .footer {
+            background-color: #071626;
+            padding: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 32px;
+            background-color: #0EC277;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 700;
+            margin-top: 25px;
+            text-transform: uppercase;
+        }
+
+        .success-badge {
+            background-color: rgba(14, 194, 119, 0.1);
+            color: #0EC277;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 20px;
+            border: 1px solid #0EC277;
+        }
+
+        h2 {
+            color: #ffffff;
+            font-size: 26px;
+            margin-bottom: 16px;
+            font-weight: 800;
+        }
+
+        p {
+            line-height: 1.6;
+            color: #cbd5e1;
+            margin-bottom: 20px;
+        }
+
+        .celebration-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        @media only screen and (max-width: 600px) {
+            .container {
+                border-radius: 0;
+            }
+
+            .content {
+                padding: 0 20px 30px 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+            <td align="center" style="padding: 20px 0; background-color: #0d223c;">
+                <table class="container" border="0" cellspacing="0" cellpadding="0">
+                    <!-- Header -->
+                    <tr>
+                        <td class="header">
+                            <img src="https://res.cloudinary.com/depeqzb6z/image/upload/v1764395173/logo_qqpk6j.svg"
+                                alt="ORR Solutions" width="120"
+                                style="display: block; margin: 0 auto 30px auto; max-width: 100%;">
+                            <div class="celebration-icon">🎉</div>
+                            <div class="success-badge">Setup Complete</div>
+                        </td>
+                    </tr>
+
+                    <!-- Main Content -->
+                    <tr>
+                        <td class="content">
+                            <h2>You're all set, {{user_name}}!</h2>
+                            <p>You've successfully completed the onboarding flow. Your account is now fully optimized
+                                and ready for action.</p>
+
+                            <p>Enabled Features:</p>
+                            <div
+                                style="text-align: left; background-color: #0A1F30; padding: 20px; border-radius: 12px; border: 1px solid rgba(14, 194, 119, 0.2); display: inline-block; width: 80%;">
+                                <div style="margin-bottom: 10px; color: #ffffff;">✅ Advanced Workspace Collaboration
+                                </div>
+                                <div style="margin-bottom: 10px; color: #ffffff;">✅ Real-time Analytics Dashboard</div>
+                                <div style="margin-bottom: 10px; color: #ffffff;">✅ Unlimited Document Storage</div>
+                                <div style="color: #ffffff;">✅ Priority Support Access</div>
+                            </div>
+
+                            <div style="text-align: center; margin-top: 30px;">
+                                <a href="{{workspace_url}}" class="btn">Launch Workspace</a>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td class="footer">
+                            <p style="margin-bottom: 10px;">Thank you for choosing ORR Solutions.</p>
+                            <div style="margin-top: 20px;">
+                                <a href="#" style="color: #0EC277; text-decoration: none; margin: 0 10px;">Visit
+                                    Blog</a> |
+                                <a href="#" style="color: #0EC277; text-decoration: none; margin: 0 10px;">Feedback</a>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

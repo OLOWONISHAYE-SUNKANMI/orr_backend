@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Feature Launch - ORR Solutions</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0d223c;
+            color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #204460;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(14, 194, 119, 0.2);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #28b026 0%, #03f6ca 100%);
+            padding: 50px 20px;
+            text-align: center;
+        }
+
+        .content {
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .footer {
+            background-color: #071626;
+            padding: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .feature-showcase {
+            background-color: #0A1F30;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 25px 0;
+            border: 1px solid rgba(14, 194, 119, 0.3);
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 32px;
+            background-color: #0EC277;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 700;
+            margin-top: 20px;
+            text-transform: uppercase;
+        }
+
+        h2 {
+            color: #ffffff;
+            font-size: 28px;
+            margin-bottom: 12px;
+            font-weight: 800;
+        }
+
+        p {
+            line-height: 1.6;
+            color: #cbd5e1;
+            margin-bottom: 20px;
+        }
+
+        @media only screen and (max-width: 600px) {
+            .container {
+                border-radius: 0;
+            }
+
+            .content {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+            <td align="center" style="padding: 20px 0; background-color: #0d223c;">
+                <table class="container" border="0" cellspacing="0" cellpadding="0">
+                    <!-- Header -->
+                    <tr>
+                        <td class="header">
+                            <img src="https://res.cloudinary.com/depeqzb6z/image/upload/v1764395173/logo_qqpk6j.svg"
+                                alt="ORR Solutions" width="120"
+                                style="display: block; margin: 0 auto; max-width: 100%;">
+                        </td>
+                    </tr>
+
+                    <!-- Main Content -->
+                    <tr>
+                        <td class="content">
+                            <div style="font-size: 13px; font-weight: 700; color: #0EC277; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px;">New Arrival</div>
+                            <h2>Meet {{feature_name}}</h2>
+                            <p>We're excited to announce a major update to your workspace. {{feature_name}} is now live and ready to transform your workflow.</p>
+
+                            <div class="feature-showcase">
+                                <img src="{{feature_screenshot_url}}" alt="Feature Preview" style="width: 100%; border-radius: 8px; margin-bottom: 15px;">
+                                <div style="text-align: left; color: #cbd5e1; font-size: 14px;">
+                                    <strong>What's New:</strong> {{feature_brief}}
+                                </div>
+                            </div>
+
+                            <div style="text-align: center;">
+                                <a href="{{try_now_url}}" class="btn">Explore the Update</a>
+                            </div>
+
+                            <p style="font-size: 13px; color: #64748b; margin-top: 30px;">
+                                Check out the <a href="{{changelog_url}}" style="color: #0EC277;">full changelog</a> for more details.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td class="footer">
+                            <p>&copy; 2026 ORR Solutions Product Team.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>
