@@ -215,13 +215,11 @@ class GoogleLoginView(APIView):
         """Get user role and permissions"""
         try:
             admin_profile = user.admin_profile
-            if admin_profile and admin_profile.role:
+            if admin_profile:
                 role = admin_profile.role
-                return {
-                    "user_type": "admin",
-                    "role_name": role.name,
-                    "role_display": role.get_name_display(),
-                    "permissions": {
+                permissions = {}
+                if role:
+                    permissions = {
                         "can_manage_users": role.can_manage_users,
                         "can_view_all_clients": role.can_view_all_clients,
                         "can_edit_clients": role.can_edit_clients,
@@ -233,6 +231,27 @@ class GoogleLoginView(APIView):
                         "can_view_billing": role.can_view_billing,
                         "can_manage_settings": role.can_manage_settings,
                         "can_view_ai_logs": role.can_view_ai_logs,
+                    }
+                return {
+                    "user_type": "admin",
+                    "role_name": role.name if role else None,
+                    "role_display": role.get_name_display() if role else None,
+                    "is_onboarding_complete": admin_profile.is_onboarding_complete,
+                    "permissions": permissions,
+                }
+        except Exception:
+            pass
+            
+        try:
+            consultant_profile = user.consultant
+            if consultant_profile:
+                return {
+                    "user_type": "consultant",
+                    "consultant_number": consultant_profile.consultant_number,
+                    "status": consultant_profile.status,
+                    "permissions": {
+                        "can_access_portal": consultant_profile.status in ['PENDING_REVIEW', 'APPROVED', 'NEEDS_CLARIFICATION'],
+                        "can_accept_jobs": consultant_profile.status == 'APPROVED',
                     },
                 }
         except Exception:

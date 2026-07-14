@@ -8,7 +8,7 @@ from .models import (
     AdminProfile, AdminRole, AIConversation, AuditLog, Client, ClientDocument,
     Content, Meeting, SystemNotification, SystemSettings, Ticket, TicketMessage,
     ProRataApproval, PaymentDispute, DisputeNote, WalletTransaction,
-    VaultFolder, DocumentVersion, Report,
+    VaultFolder, DocumentVersion, Report, StudioDocument,
 )
 from .models_cms import (
     HomePage, ServiceCard, Testimonial, FAQ, BlogPost, ContactInfo, SiteSettings,
@@ -23,6 +23,27 @@ from .models_cms import (
     StrategicAdvisoryPageContent, OperationalSystemsPageContent, LivingSystemsPageContent,
 )
 
+# Custom User Admin to show roles
+class CustomUserAdmin(BaseUserAdmin):
+    list_display = ('username', 'email', 'first_name', 'last_name', 'is_active', 'is_staff', 'get_role')
+    list_filter = ('is_staff', 'is_superuser', 'is_active')
+    
+    def get_role(self, obj):
+        if obj.is_superuser:
+            return 'Superuser'
+        if hasattr(obj, 'consultant'):
+            return 'Consultant'
+        if hasattr(obj, 'client_profile'):
+            return 'Client'
+        if hasattr(obj, 'admin_profile'):
+            return 'Project Manager'
+        if obj.is_staff:
+            return 'Project Manager'
+        return 'User'
+    get_role.short_description = 'System Role'
+
+admin.site.unregister(User)
+admin.site.register(User, CustomUserAdmin)
 
 @admin.register(AdminRole)
 class AdminRoleAdmin(admin.ModelAdmin):
@@ -252,6 +273,16 @@ class ReportAdmin(admin.ModelAdmin):
     search_fields = ["title", "description", "meeting__client__company"]
     raw_id_fields = ["meeting"]
     readonly_fields = ["created_at", "updated_at"]
+
+
+@admin.register(StudioDocument)
+class StudioDocumentAdmin(admin.ModelAdmin):
+    list_display = ["title", "type", "owner", "folder", "is_trashed", "created_at", "updated_at"]
+    list_filter = ["type", "is_trashed", "created_at"]
+    search_fields = ["title", "owner__username", "owner__email"]
+    raw_id_fields = ["owner", "folder"]
+    readonly_fields = ["created_at", "updated_at", "trashed_at"]
+    date_hierarchy = "created_at"
 
 
 # CMS Admin Registration

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workspace Ready - ORR Solutions</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0d223c;
+            color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #204460;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(14, 194, 119, 0.1);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #28b026 0%, #03f6ca 100%);
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .footer {
+            background-color: #071626;
+            padding: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .integration-box {
+            background-color: #0A1F30;
+            border: 1px solid rgba(14, 194, 119, 0.2);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 25px 0;
+            text-align: center;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 32px;
+            background-color: #0EC277;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 700;
+            margin-top: 25px;
+            text-transform: uppercase;
+        }
+
+        h2 {
+            color: #ffffff;
+            font-size: 24px;
+            margin-bottom: 16px;
+            font-weight: 700;
+        }
+
+        p {
+            line-height: 1.6;
+            color: #cbd5e1;
+            margin-bottom: 20px;
+        }
+
+        @media only screen and (max-width: 600px) {
+            .container {
+                border-radius: 0;
+            }
+
+            .content {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+            <td align="center" style="padding: 20px 0; background-color: #0d223c;">
+                <table class="container" border="0" cellspacing="0" cellpadding="0">
+                    <!-- Header -->
+                    <tr>
+                        <td class="header">
+                            <img src="https://res.cloudinary.com/depeqzb6z/image/upload/v1764395173/logo_qqpk6j.svg"
+                                alt="ORR Solutions" width="120"
+                                style="display: block; margin: 0 auto; max-width: 100%;">
+                        </td>
+                    </tr>
+
+                    <!-- Main Content -->
+                    <tr>
+                        <td class="content">
+                            <div style="text-align: center;">
+                                <h2>Your Workspace is Ready!</h2>
+                                <p>We've successfully provisioned your professional Google Workspace. Everything is
+                                    ready for your team.</p>
+                            </div>
+
+                            <div class="integration-box">
+                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_Icons_2020.svg/1200px-Google_Icons_2020.svg.png"
+                                    alt="Google Workspace" style="width: 48px; margin-bottom: 15px;">
+                                <div style="font-weight: 700; font-size: 18px; color: #ffffff; margin-bottom: 5px;">
+                                    Google Workspace Connected</div>
+                                <div style="font-size: 14px; color: #94a3b8;">Integrated with Docs, Drive, and Meet
+                                </div>
+
+                                <table width="100%" border="0" cellspacing="0" cellpadding="0"
+                                    style="margin-top: 20px; text-align: left;">
+                                    <tr>
+                                        <td style="padding: 12px 0; border-bottom: 1px solid rgba(14, 194, 119, 0.1);">
+                                            <span style="color: #94a3b8; font-size: 13px;">Workspace Email:</span><br>
+                                            <span style="color: #ffffff; font-weight: 600;">{{workspace_email}}</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 12px 0;">
+                                            <span style="color: #94a3b8; font-size: 13px;">Storage
+                                                Allocation:</span><br>
+                                            <span style="color: #ffffff; font-weight: 600;">{{storage_limit}}</span>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            <div style="text-align: center;">
+                                <a href="{{workspace_url}}" class="btn">Enter Workspace</a>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td class="footer">
+                            <p style="margin-bottom: 10px;">Need help? Check our <a href="#"
+                                    style="color: #0EC277;">Setup Guide</a>.</p>
+                            <p>&copy; 2026 ORR Solutions. All rights reserved.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

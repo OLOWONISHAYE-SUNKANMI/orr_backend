@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to ORR Solutions</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0d223c;
+            color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #204460;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(14, 194, 119, 0.1);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #28b026 0%, #03f6ca 100%);
+            padding: 50px 20px;
+            text-align: center;
+            color: #ffffff;
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .footer {
+            background-color: #071626;
+            padding: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 32px;
+            background-color: #0EC277;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 700;
+            margin-top: 25px;
+            text-transform: uppercase;
+        }
+
+        .step-number {
+            background-color: #0A1F30;
+            color: #0EC277;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+            border: 1px solid #0EC277;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 800;
+        }
+
+        h2 {
+            color: #ffffff;
+            font-size: 22px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        p {
+            line-height: 1.6;
+            margin-bottom: 20px;
+            color: #cbd5e1;
+        }
+
+        @media only screen and (max-width: 600px) {
+            .container {
+                border-radius: 0;
+            }
+
+            .content {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+            <td align="center" style="padding: 20px 0; background-color: #0d223c;">
+                <table class="container" border="0" cellspacing="0" cellpadding="0">
+                    <!-- Header -->
+                    <tr>
+                        <td class="header">
+                            <img src="https://res.cloudinary.com/depeqzb6z/image/upload/v1764395173/logo_qqpk6j.svg"
+                                alt="ORR Solutions" width="120"
+                                style="display: block; margin: 0 auto 20px auto; max-width: 100%;">
+                            <h1>Welcome to the Family!</h1>
+                            <p style="color: #ffffff; opacity: 0.9; margin-top: 10px;">We're thrilled to have you at ORR
+                                Solutions.</p>
+                        </td>
+                    </tr>
+
+                    <!-- Main Content -->
+                    <tr>
+                        <td class="content">
+                            <h2>Let's get you started</h2>
+                            <p>You're now part of a community focused on scaling efficiently. Here's how to kickstart
+                                your journey:</p>
+
+                            <!-- Steps Table -->
+                            <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td width="40" valign="top">
+                                        <div
+                                            style="background-color: #0A1F30; color: #0EC277; width: 28px; height: 28px; border-radius: 14px; text-align: center; line-height: 28px; font-weight: bold; border: 1px solid #0EC277;">
+                                            1</div>
+                                    </td>
+                                    <td style="padding-bottom: 20px;">
+                                        <div style="font-weight: 600; color: #ffffff;">Complete your profile</div>
+                                        <div style="font-size: 14px; color: #94a3b8;">Personalize your workspace
+                                            preferences.</div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td width="40" valign="top">
+                                        <div
+                                            style="background-color: #0A1F30; color: #0EC277; width: 28px; height: 28px; border-radius: 14px; text-align: center; line-height: 28px; font-weight: bold; border: 1px solid #0EC277;">
+                                            2</div>
+                                    </td>
+                                    <td style="padding-bottom: 20px;">
+                                        <div style="font-weight: 600; color: #ffffff;">Invite your team</div>
+                                        <div style="font-size: 14px; color: #94a3b8;">Collaboration is built into every
+                                            feature.</div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td width="40" valign="top">
+                                        <div
+                                            style="background-color: #0A1F30; color: #0EC277; width: 28px; height: 28px; border-radius: 14px; text-align: center; line-height: 28px; font-weight: bold; border: 1px solid #0EC277;">
+                                            3</div>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 600; color: #ffffff;">Explore the Dashboard</div>
+                                        <div style="font-size: 14px; color: #94a3b8;">Check your real-time analytics
+                                            overview.</div>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <div style="text-align: center;">
+                                <a href="{{dashboard_url}}" class="btn">Go to Dashboard</a>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td class="footer">
+                            <p style="margin-bottom: 10px;">Questions? We're here to help.</p>
+                            <div style="margin-top: 20px;">
+                                <a href="#" style="color: #0EC277; text-decoration: none; margin: 0 10px;">Help
+                                    Center</a> |
+                                <a href="#" style="color: #0EC277; text-decoration: none; margin: 0 10px;">Tutorials</a>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

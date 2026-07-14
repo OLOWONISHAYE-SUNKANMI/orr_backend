@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wallet Refill Confirmed - ORR Solutions</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0d223c;
+            color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #204460;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(14, 194, 119, 0.1);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #28b026 0%, #03f6ca 100%);
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .content {
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .footer {
+            background-color: #071626;
+            padding: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .wallet-card {
+            background-color: #0A1F30;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 25px 0;
+            border: 1px solid rgba(14, 194, 119, 0.3);
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 32px;
+            background-color: #0EC277;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 700;
+            margin-top: 20px;
+            text-transform: uppercase;
+        }
+
+        h2 {
+            color: #ffffff;
+            font-size: 24px;
+            margin-bottom: 16px;
+            font-weight: 700;
+        }
+
+        p {
+            line-height: 1.6;
+            color: #cbd5e1;
+            margin-bottom: 20px;
+        }
+
+        .balance-label { color: #94a3b8; font-size: 13px; text-transform: uppercase; margin-bottom: 8px; }
+        .balance-amount { color: #0EC277; font-size: 32px; font-weight: 800; }
+
+        @media only screen and (max-width: 600px) {
+            .container {
+                border-radius: 0;
+            }
+
+            .content {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+            <td align="center" style="padding: 20px 0; background-color: #0d223c;">
+                <table class="container" border="0" cellspacing="0" cellpadding="0">
+                    <!-- Header -->
+                    <tr>
+                        <td class="header">
+                            <img src="https://res.cloudinary.com/depeqzb6z/image/upload/v1764395173/logo_qqpk6j.svg"
+                                alt="ORR Solutions" width="120"
+                                style="display: block; margin: 0 auto; max-width: 100%;">
+                        </td>
+                    </tr>
+
+                    <!-- Main Content -->
+                    <tr>
+                        <td class="content">
+                            <h2>Wallet Top-Up Successful</h2>
+                            <p>Funds have been successfully added to your account wallet. You can now use these credits for automated task processing and API calls.</p>
+
+                            <div class="wallet-card">
+                                <div class="balance-label">Added Amount</div>
+                                <div class="balance-amount" style="font-size: 24px; margin-bottom: 20px;">+ {{currency_symbol}}{{added_amount}}</div>
+                                
+                                <div style="height: 1px; background-color: rgba(14, 194, 119, 0.2); margin: 20px 0;"></div>
+
+                                <div class="balance-label">New Wallet Balance</div>
+                                <div class="balance-amount">{{currency_symbol}}{{new_balance}}</div>
+                            </div>
+
+                            <div style="text-align: center;">
+                                <a href="{{wallet_url}}" class="btn">View Wallet Details</a>
+                            </div>
+
+                            <p style="font-size: 13px; color: #64748b; margin-top: 30px;">
+                                Transaction ID: {{transaction_id}}
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td class="footer">
+                            <p style="margin-bottom: 10px;">Need more credits? <a href="#"
+                                    style="color: #0EC277;">Enable Auto-Refill</a>.</p>
+                            <p>&copy; 2026 ORR Solutions Credits Engine.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

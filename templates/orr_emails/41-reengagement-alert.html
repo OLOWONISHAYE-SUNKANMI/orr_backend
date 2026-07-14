@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>We Miss You - ORR Solutions</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0d223c;
+            color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #204460;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(14, 194, 119, 0.1);
+        }
+
+        .header {
+            background-color: #071626;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .content {
+            padding: 50px 30px;
+            text-align: center;
+        }
+
+        .footer {
+            background-color: #071626;
+            padding: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .reengagement-card {
+            background-color: #0A1F30;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 25px 0;
+            border-left: 5px solid #0EC277;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 32px;
+            background-color: #0EC277;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 700;
+            margin-top: 20px;
+            text-transform: uppercase;
+        }
+
+        h2 {
+            color: #ffffff;
+            font-size: 30px;
+            margin-bottom: 15px;
+            font-weight: 800;
+        }
+
+        p {
+            line-height: 1.6;
+            color: #cbd5e1;
+            margin-bottom: 20px;
+        }
+
+        @media only screen and (max-width: 600px) {
+            .container {
+                border-radius: 0;
+            }
+
+            .content {
+                padding: 40px 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+            <td align="center" style="padding: 20px 0; background-color: #0d223c;">
+                <table class="container" border="0" cellspacing="0" cellpadding="0">
+                    <!-- Header -->
+                    <tr>
+                        <td class="header">
+                            <img src="https://res.cloudinary.com/depeqzb6z/image/upload/v1764395173/logo_qqpk6j.svg"
+                                alt="ORR Solutions" width="120"
+                                style="display: block; margin: 0 auto; max-width: 100%;">
+                        </td>
+                    </tr>
+
+                    <!-- Main Content -->
+                    <tr>
+                        <td class="content">
+                            <h2>Thinking of you.</h2>
+                            <p>It's been a while since we've seen you in the workspace, {{user_name}}. We've made some significant improvements lately that we think you'll love.</p>
+
+                            <div class="reengagement-card">
+                                <div style="text-align: left;">
+                                    <div style="color: #0EC277; font-weight: 700; font-size: 14px; margin-bottom: 10px;">While you were away:</div>
+                                    <p style="font-size: 14px; margin-bottom: 5px;">• {{update_1}}</p>
+                                    <p style="font-size: 14px; margin-bottom: 5px;">• {{update_2}}</p>
+                                    <p style="font-size: 14px; margin-bottom: 5px;">• {{update_3}}</p>
+                                </div>
+                            </div>
+
+                            <div style="text-align: center;">
+                                <a href="{{dashboard_url}}" class="btn">Return to Workspace</a>
+                            </div>
+
+                            <p style="font-size: 13px; color: #64748b; margin-top: 30px;">
+                                Need a fresh tour? <a href="#" style="color: #0EC277;">Book a 5-minute demo</a>.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td class="footer">
+                            <p>&copy; 2026 ORR Solutions Growth Team.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

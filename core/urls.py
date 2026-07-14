@@ -44,15 +44,16 @@ urlpatterns = [
         'google4c2e35c31a92bd53.html', 
         lambda request: HttpResponse("google-site-verification: google4c2e35c31a92bd53.html")
     ),
-    # Direct login endpoint for frontend
     path("login/", LoginView.as_view(), name="direct-login"),
     path("", include("main.v1.urls")),
     path("", include("client.v1.urls")),
+    path("api/v1/consultants/", include("consultation.v1.urls")),
     path("", include("scheduling.v1.urls")),
     path("", include("notification.v1.urls")),
     path("admin-portal/", include("admin_portal.urls")),
     path("", include("payment.v1.urls")),
     path("api/", include("common.urls")),
+    path("pm/", include("pm.urls")),
 ]
 
 # Serve media files in both development and production

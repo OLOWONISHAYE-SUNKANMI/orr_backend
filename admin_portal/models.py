@@ -55,6 +55,7 @@ class AdminProfile(Audit):
     phone = models.CharField(max_length=20, blank=True)
     is_active = models.BooleanField(default=True)
     last_login_ip = models.GenericIPAddressField(null=True, blank=True)
+    is_onboarding_complete = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.user.get_full_name()} - {self.role}"
@@ -425,6 +426,10 @@ class SystemNotification(Audit):
         ("meeting_updated", "Meeting Updated"),
         ("system_error", "System Error"),
         ("ai_improvement", "AI Needs Improvement"),
+        ("project_submitted", "Project Submitted"),
+        ("project_clarify", "Project Clarification"),
+        ("project_approved", "Project Approved"),
+        ("project_completed", "Project Completed"),
     ]
 
     notification_type = models.CharField(max_length=20, choices=TYPE_CHOICES)
@@ -958,3 +963,48 @@ class Report(Audit):
             size_in_mb = self.file.size / (1024 * 1024)
             return f"{size_in_mb:.1f} MB"
         return "0 MB"
+
+
+class StudioDocument(Audit):
+    """Document Studio documents (Docs, Sheets, Slides)
+
+    Stores content for the three editor types:
+    - doc:   HTML string (Tiptap/ProseMirror output)
+    - sheet: JSON array of FortuneSheet sheet objects
+    - slide: JSON array of Fabric.js slide objects
+    """
+
+    TYPE_CHOICES = [
+        ('doc', 'Document'),
+        ('sheet', 'Spreadsheet'),
+        ('slide', 'Presentation'),
+    ]
+
+    title = models.CharField(max_length=500, default='Untitled')
+    type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    folder = models.ForeignKey(
+        VaultFolder, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='studio_documents'
+    )
+    owner = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='studio_documents'
+    )
+
+    # Content payload — stores HTML string (docs) or JSON array (sheets/slides)
+    content = models.JSONField(default=dict, blank=True)
+
+    # Soft-delete support
+    is_trashed = models.BooleanField(default=False)
+    trashed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['owner', '-updated_at'], name='studiodoc_owner_updated_idx'),
+            models.Index(fields=['owner', 'type'], name='studiodoc_owner_type_idx'),
+            models.Index(fields=['folder'], name='studiodoc_folder_idx'),
+            models.Index(fields=['is_trashed'], name='studiodoc_trashed_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.title} ({self.get_type_display()}) — {self.owner.username}"

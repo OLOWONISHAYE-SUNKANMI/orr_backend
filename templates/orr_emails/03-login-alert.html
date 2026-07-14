@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Login Alert - ORR Solutions</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0d223c;
+            color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #204460;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(14, 194, 119, 0.1);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #28b026 0%, #03f6ca 100%);
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .footer {
+            background-color: #071626;
+            padding: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .info-card {
+            background-color: #0A1F30;
+            border: 1px solid rgba(14, 194, 119, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+
+        .info-row {
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        .info-label {
+            color: #94a3b8;
+            font-weight: 600;
+            width: 100px;
+            display: inline-block;
+        }
+
+        .info-value {
+            color: #ffffff;
+            font-weight: 500;
+        }
+
+        .btn-outline {
+            display: inline-block;
+            padding: 12px 24px;
+            border: 2px solid #ef4444;
+            color: #ef4444 !important;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 700;
+            margin-top: 10px;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            color: #ffffff;
+            margin: 0;
+            font-size: 24px;
+            font-weight: 800;
+        }
+
+        h2 {
+            color: #ffffff;
+            font-size: 24px;
+            margin-bottom: 16px;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        p {
+            line-height: 1.6;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #cbd5e1;
+        }
+
+        .alert-icon {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        @media only screen and (max-width: 600px) {
+            .container {
+                border-radius: 0;
+            }
+
+            .content {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+            <td align="center" style="padding: 20px 0; background-color: #0d223c;">
+                <table class="container" border="0" cellspacing="0" cellpadding="0">
+                    <!-- Header -->
+                    <tr>
+                        <td class="header">
+                            <img src="https://res.cloudinary.com/depeqzb6z/image/upload/v1764395173/logo_qqpk6j.svg"
+                                alt="ORR Solutions" width="120"
+                                style="display: block; margin: 0 auto; max-width: 100%;">
+                            <p style="color: #ffffff; font-size: 14px; margin-top: 16px; opacity: 0.9;">Security Alert
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Main Content -->
+                    <tr>
+                        <td class="content">
+                            <div class="alert-icon">🛡️</div>
+                            <h2>New Login Detected</h2>
+                            <p>We noticed a new login from an unrecognized device or location.</p>
+
+                            <div class="info-card">
+                                <div class="info-row">
+                                    <span class="info-label">Device:</span>
+                                    <span class="info-value">{{device_name}}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Location:</span>
+                                    <span class="info-value">{{location}}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">IP Address:</span>
+                                    <span class="info-value">{{ip_address}}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Time:</span>
+                                    <span class="info-value">{{login_time}}</span>
+                                </div>
+                            </div>
+
+                            <div style="text-align: center;">
+                                <p style="font-weight: 600; color: #ffffff;">Was this you?</p>
+                                <p style="font-size: 14px; color: #94a3b8;">If yes, you can safely ignore this. If not,
+                                    please secure your account.</p>
+                                <a href="{{secure_account_link}}" class="btn-outline">Secure My Account</a>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td class="footer">
+                            <p style="margin-bottom: 10px;">&copy; 2026 ORR Solutions. All rights reserved.</p>
+                            <div style="margin-top: 20px;">
+                                <a href="#" style="color: #0EC277; text-decoration: none; margin: 0 10px;">Security
+                                    Dashboard</a> |
+                                <a href="#" style="color: #0EC277; text-decoration: none; margin: 0 10px;">Privacy</a>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

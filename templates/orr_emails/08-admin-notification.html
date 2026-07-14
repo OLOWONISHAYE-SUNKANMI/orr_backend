@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Submission Detected - ORR Solutions</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0d223c;
+            color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #204460;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(14, 194, 119, 0.1);
+        }
+
+        .header {
+            background-color: #071626; /* Darker header for internal alerts */
+            padding: 30px 20px;
+            text-align: center;
+            border-bottom: 2px solid #0EC277;
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .footer {
+            background-color: #071626;
+            padding: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .alert-banner {
+            background-color: rgba(14, 194, 119, 0.1);
+            color: #0EC277;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+        }
+
+        .data-table {
+            width: 100%;
+            margin: 20px 0;
+            background-color: #0A1F30;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .data-row td {
+            padding: 15px;
+            border-bottom: 1px solid rgba(14, 194, 119, 0.05);
+        }
+
+        .label {
+            color: #94a3b8;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .value {
+            color: #ffffff;
+            font-size: 14px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 32px;
+            background-color: #0EC277;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 700;
+            margin-top: 20px;
+            text-transform: uppercase;
+        }
+
+        h2 {
+            color: #ffffff;
+            font-size: 22px;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        @media only screen and (max-width: 600px) {
+            .container {
+                border-radius: 0;
+            }
+
+            .content {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+            <td align="center" style="padding: 20px 0; background-color: #0d223c;">
+                <table class="container" border="0" cellspacing="0" cellpadding="0">
+                    <!-- Header -->
+                    <tr>
+                        <td class="header">
+                            <img src="https://res.cloudinary.com/depeqzb6z/image/upload/v1764395173/logo_qqpk6j.svg"
+                                alt="ORR Solutions" width="120"
+                                style="display: block; margin: 0 auto; max-width: 100%;">
+                        </td>
+                    </tr>
+
+                    <!-- Main Content -->
+                    <tr>
+                        <td class="content">
+                            <div class="alert-banner">Admin Notification</div>
+                            <h2>New Form Submission</h2>
+                            <p style="color: #cbd5e1; font-size: 15px;">A new entry has been submitted via the <strong>{{form_name}}</strong>. Details are captured below for immediate review.</p>
+
+                            <table class="data-table" border="0" cellspacing="0" cellpadding="0">
+                                <tr class="data-row">
+                                    <td width="35%" class="label">Submitter</td>
+                                    <td class="value">{{submitter_name}}</td>
+                                </tr>
+                                <tr class="data-row">
+                                    <td class="label">Email</td>
+                                    <td class="value">{{submitter_email}}</td>
+                                </tr>
+                                <tr class="data-row">
+                                    <td class="label">Ref ID</td>
+                                    <td class="value" style="font-family: monospace; color: #0EC277;">{{reference_id}}</td>
+                                </tr>
+                                <tr class="data-row">
+                                    <td class="label">Priority</td>
+                                    <td class="value">
+                                        <span style="color: #f59e0b;">● Medium</span>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <div style="text-align: center;">
+                                <a href="{{admin_link}}" class="btn">Review in Dashboard</a>
+                            </div>
+
+                            <p style="font-size: 13px; color: #64748b; margin-top: 30px; text-align: center;">
+                                This is an automated system notification. No action is required if your workflow rules handle this automatically.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td class="footer">
+                            <p>&copy; 2026 ORR Solutions Internal Engine. Confidential.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

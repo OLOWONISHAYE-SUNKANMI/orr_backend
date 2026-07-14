@@ -2,7 +2,9 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .views.document import ClientDocumentsView
+from .views.studio_document import StudioDocumentListView, StudioDocumentDetailView
 from admin_portal.v1.views import vault
+from admin_portal.v1.views import ai_views
 
 from .views.tickets import ClientTicketCreateAPIView, ClientTicketHistoryAPIView
 from .views.account import (
@@ -30,6 +32,19 @@ from .views.ticket import (
 )
 
 from .views.past_consultation import PastConsultationListView
+from .views.request import (
+    ClientRequestListCreateView,
+    ClientRequestDetailView,
+    ClientRequestSubmitView,
+    ClientRequestDocumentUploadView,
+    ClientRequestVersionsView,
+    ClientRequestAdminListView,
+    ClientRequestAdminDetailView,
+    ClientRequestAdminReviewView,
+    ClientRequestConvertToProjectView,
+    ClientRequestAdminPMListView,
+    ClientRequestAdminCreateView,
+)
 
 from .views.report import MeetingReportDashboardView
 
@@ -95,4 +110,36 @@ urlpatterns = [
     path("vault/documents/", vault.VaultDocumentListView.as_view(), name="client-vault-documents"),
     path("vault/documents/<int:pk>/", vault.VaultDocumentDetailView.as_view(), name="client-vault-document-detail"),
     path("vault/activity/", vault.VaultActivityListView.as_view(), name="client-vault-activity"),
+
+    # Document Studio endpoints
+    path("api/documents/", StudioDocumentListView.as_view(), name="studio-document-list"),
+    path("api/documents/<int:pk>/", StudioDocumentDetailView.as_view(), name="studio-document-detail"),
+
+    # AI Assistant endpoints
+    path("ai/chat/", ai_views.AIAssistantChatView.as_view(), name="client-ai-chat"),
+    path("ai/meeting-prep/", ai_views.MeetingPrepView.as_view(), name="client-ai-meeting-prep"),
+    path("ai/document-summary/", ai_views.DocumentSummaryView.as_view(), name="client-ai-document-summary"),
+
+    # Client Request / Problem Brief endpoints
+    path("requests/", ClientRequestListCreateView.as_view(), name="client-request-list-create"),
+    path("requests/<int:pk>/", ClientRequestDetailView.as_view(), name="client-request-detail"),
+    path("requests/<int:pk>/submit/", ClientRequestSubmitView.as_view(), name="client-request-submit"),
+    path("requests/<int:pk>/documents/", ClientRequestDocumentUploadView.as_view(), name="client-request-documents"),
+    path("requests/<int:pk>/versions/", ClientRequestVersionsView.as_view(), name="client-request-versions"),
+
+    # Admin-facing request endpoints
+    path("api/admin/requests/", ClientRequestAdminListView.as_view(), name="admin-request-list"),
+    path("api/admin/requests/create/", ClientRequestAdminCreateView.as_view(), name="admin-request-create"),
+    path("api/admin/requests/<int:pk>/", ClientRequestAdminDetailView.as_view(), name="admin-request-detail"),
+    path("api/admin/requests/<int:pk>/review/", ClientRequestAdminReviewView.as_view(), name="admin-request-review"),
+    path(
+        "api/admin/requests/<int:pk>/convert-to-project/",
+        ClientRequestConvertToProjectView.as_view(),
+        name="admin-client-request-convert",
+    ),
+    path(
+        "api/admin/pms/",
+        ClientRequestAdminPMListView.as_view(),
+        name="admin-client-request-pms",
+    ),
 ]

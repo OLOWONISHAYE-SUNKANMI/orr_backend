@@ -89,5 +89,40 @@ class OnboardingQuestionnaireViewSet(viewsets.GenericViewSet):
         
         client.save()
 
-        return Response(serializer.data)
-    
+        # AI-powered onboarding analysis
+        ai_recommendations = None
+        try:
+            from admin_portal import gemini_service
+
+            ai_result = gemini_service.analyze_onboarding(
+                user_type=getattr(onboarding, "user_type", ""),
+                project_stage=getattr(onboarding, "project_stage", ""),
+                jurisdiction=getattr(onboarding, "jurisdiction", ""),
+                orr_pillars=onboarding.orr_pillars if isinstance(onboarding.orr_pillars, list) else [],
+                challenges=onboarding.challenges if isinstance(onboarding.challenges, list) else [],
+                has_active_project=getattr(onboarding, "has_active_project", ""),
+                project_description=getattr(onboarding, "project_description", ""),
+                communication_tone=getattr(onboarding, "communication_tone", ""),
+            )
+
+            # Store AI notes on the client profile for admin review
+            if ai_result and ai_result.get("ai_notes"):
+                client.internal_notes = (
+                    f"[AI Onboarding Analysis]\n"
+                    f"Recommended Pillar: {ai_result.get('recommended_pillar', 'N/A')}\n"
+                    f"Roadmap: {ai_result.get('roadmap_summary', 'N/A')}\n"
+                    f"Notes: {ai_result.get('ai_notes', '')}\n"
+                    f"---\n{client.internal_notes}"
+                )
+                client.save(update_fields=["internal_notes"])
+
+            ai_recommendations = ai_result
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"AI onboarding analysis failed: {e}")
+
+        response_data = serializer.data
+        if ai_recommendations:
+            response_data["ai_recommendations"] = ai_recommendations
+
+        return Response(response_data)

@@ -41,26 +41,56 @@ class AutoReplyService:
     @classmethod
     def send_initial_auto_reply(cls, ticket: Ticket, custom_timeframe: str = "24 hours") -> bool:
         """
-        Send initial automatic reply when a ticket is created
+        Send initial automatic reply when a ticket is created.
+        Uses Gemini AI to generate a contextual response; falls back to template if AI is unavailable.
         """
         try:
+            # Try AI-powered smart reply first
+            from . import gemini_service
+
+            client_name = ticket.client.user.get_full_name() if ticket.client else ""
+            client_stage = getattr(ticket.client, "stage", "") if ticket.client else ""
+            client_pillar = getattr(ticket.client, "primary_pillar", "") if ticket.client else ""
+
+            ai_reply = gemini_service.generate_smart_reply(
+                ticket_subject=ticket.subject,
+                ticket_description=ticket.description,
+                client_name=client_name,
+                client_stage=client_stage,
+                client_pillar=client_pillar,
+            )
+
+            reply_message = ai_reply if ai_reply else cls.DEFAULT_INITIAL_REPLY
+
             # Create initial auto-reply message
             initial_message = TicketMessage.objects.create(
                 ticket=ticket,
                 sender=cls._get_system_user(),
-                message=cls.DEFAULT_INITIAL_REPLY,
+                message=reply_message,
                 is_internal=False  # Visible to client
             )
 
             # Send notification to admin
             cls._notify_admin_of_new_ticket(ticket)
 
-            logger.info(f"Initial auto-reply sent for ticket {ticket.ticket_id}")
+            logger.info(f"AI-powered auto-reply sent for ticket {ticket.ticket_id}")
             return True
 
         except Exception as e:
             logger.error(f"Failed to send initial auto-reply for ticket {ticket.ticket_id}: {e}")
-            return False
+            # Fallback to hardcoded template
+            try:
+                TicketMessage.objects.create(
+                    ticket=ticket,
+                    sender=cls._get_system_user(),
+                    message=cls.DEFAULT_INITIAL_REPLY,
+                    is_internal=False,
+                )
+                cls._notify_admin_of_new_ticket(ticket)
+                return True
+            except Exception as fallback_err:
+                logger.error(f"Fallback auto-reply also failed: {fallback_err}")
+                return False
 
     @classmethod
     def send_delay_notice(cls, ticket: Ticket, custom_timeframe: str = "48 hours") -> bool:

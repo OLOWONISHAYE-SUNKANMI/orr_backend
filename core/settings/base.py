@@ -26,11 +26,12 @@ from datetime import timedelta
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config("SECRET_KEY", default="django-insecure-fallback-for-cloud-run-boot")
 
-DEBUG = config("DEBUG", default=True, cast=bool)
-
-
+DEBUG = config("DEBUG", default=False, cast=bool)
 
 ALLOWED_HOSTS = ["*"]
+cloud_run_url = config("CLOUD_RUN_URL", default="")
+if cloud_run_url:
+    ALLOWED_HOSTS.append(cloud_run_url.replace("https://", "").replace("http://", ""))
 
 
 # Application definition
@@ -48,12 +49,14 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "common",
     "client",
+    "consultation",
     "notification",
     "main",
     "admin_portal",
     "scheduling",
     "payment",
     "storages",
+    "pm",
 ]
 
 MIDDLEWARE = [
@@ -71,14 +74,26 @@ MIDDLEWARE = [
 ]
 
 # Storage settings for Django 4.2+
-STORAGES = {
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-    },
-}
+GS_BUCKET_NAME = config("GS_BUCKET_NAME", default="")
+
+if GS_BUCKET_NAME:
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.gcloud.GoogleCloudStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
+else:
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        },
+    }
 ROOT_URLCONF = "core.urls"
 
 TEMPLATES = [
@@ -190,6 +205,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "user": "100/day",
         "anon": "10/hour",
+        "document_autosave": "60/minute",
     },
 }
 
@@ -202,11 +218,11 @@ SIMPLE_JWT = {
 
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = config("EMAIL_HOST", default="smtp-relay.brevo.com")
+EMAIL_HOST = config("EMAIL_HOST", default="smtp.gmail.com")
 EMAIL_PORT = config("EMAIL_PORT", cast=int, default=587)
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = config("BREVO_SMTP_USER", default="")
-EMAIL_HOST_PASSWORD = config("BREVO_SMTP_KEY", default="")
+EMAIL_USE_TLS = config("EMAIL_USE_TLS", cast=bool, default=True)
+EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@orr.solutions")
 
 
@@ -258,6 +274,10 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://localhost:3001",
     "http://127.0.0.1:3001",
+    "http://localhost:3002",
+    "http://127.0.0.1:3002",
+    "http://localhost:3003",
+    "http://127.0.0.1:3003",
     "http://localhost:5173",
     "http://localhost:8000",
     "https://admin.orr.solutions",
@@ -303,6 +323,10 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://localhost:3001",
     "http://127.0.0.1:3001",
+    "http://localhost:3002",
+    "http://127.0.0.1:3002",
+    "http://localhost:3003",
+    "http://127.0.0.1:3003",
     "http://localhost:5173",
     "http://localhost:8000",
     "https://admin.orr.solutions",
@@ -333,6 +357,10 @@ CSRF_TRUSTED_ORIGINS += [
     "http://127.0.0.1:3000",
     "http://localhost:3001",
     "http://127.0.0.1:3001",
+    "http://localhost:3002",
+    "http://127.0.0.1:3002",
+    "http://localhost:3003",
+    "http://127.0.0.1:3003",
     "https://admin.orr.solutions",
     "https://orr-admin-frontend.vercel.app",
     "https://orr-solutions-admin.vercel.app",

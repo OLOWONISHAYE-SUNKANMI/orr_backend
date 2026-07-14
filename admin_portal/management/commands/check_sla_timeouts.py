@@ -2,7 +2,6 @@ import logging
 from datetime import timedelta
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from django.core.mail import send_mail
 from django.conf import settings
 from admin_portal.models import Ticket
 
@@ -20,6 +19,8 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        from admin_portal.orr_email_service import ORREmailService
+
         hours = options['hours']
         threshold_time = timezone.now() - timedelta(hours=hours)
 
@@ -40,28 +41,25 @@ class Command(BaseCommand):
             admin_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'admin@orr.solutions')
             if ticket.assigned_to and ticket.assigned_to.email:
                 admin_email = ticket.assigned_to.email
-            else:
-                # If you have a specific general admin address, it could go here
-                pass
 
             if not admin_email:
                 continue
 
-            subject = f"SLA Breach Alert: Ticket {ticket.ticket_id}"
-            message = (
-                f"Ticket {ticket.ticket_id} ('{ticket.subject}') has not been updated in over {hours} hours.\n\n"
-                f"Current Status: {ticket.status}\n"
-                f"Assigned To: {ticket.assigned_to.get_full_name() if ticket.assigned_to else 'Unassigned'}\n\n"
-                f"Please review this ticket as soon as possible."
-            )
+            assigned_name = ticket.assigned_to.get_full_name() if ticket.assigned_to else 'Unassigned'
+            admin_url = f"https://admin.orr.solutions/tickets/{ticket.id}"
 
             try:
-                send_mail(
-                    subject=subject,
-                    message=message,
-                    from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@orr.solutions'),
-                    recipient_list=[admin_email],
-                    fail_silently=True,
+                ORREmailService.send_action_required(
+                    recipient_email=admin_email,
+                    form_name=f"SLA Breach: Ticket {ticket.ticket_id}",
+                    reference_id=ticket.ticket_id,
+                    missing_info_detail=(
+                        f"Ticket '{ticket.subject}' has not been updated in over {hours} hours.\n"
+                        f"Current Status: {ticket.status}\n"
+                        f"Assigned To: {assigned_name}\n"
+                        f"Please review this ticket immediately."
+                    ),
+                    action_link=admin_url,
                 )
                 self.stdout.write(self.style.SUCCESS(f'Sent alert for ticket {ticket.ticket_id} to {admin_email}'))
             except Exception as e:

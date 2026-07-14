@@ -1,5 +1,6 @@
 from . import (
     ai_oversight,
+    ai_views,
     analytics,
     approval_queue,
     audit_security,
@@ -33,4 +34,5 @@ from . import (
     vault,
     wallet_logs,
     workspace_usage,
+    consultant_approvals,
 )
