@@ -60,7 +60,7 @@ class CustomJSONRenderer(JSONRenderer):
                message = data.pop("error")
 
 
-        if isinstance(data, dict) and "data" in data and isinstance(data["data"], dict):
+        if isinstance(data, dict) and "data" in data:
             inner_data = data["data"]
         else:
             inner_data = data if isinstance(data, (dict, list)) else {}

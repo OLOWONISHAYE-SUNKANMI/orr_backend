@@ -16,7 +16,6 @@ class ConsultantApprovalsListView(APIView):
     permission_classes = [IsAuthenticated] # Or IsSuperAdminOrAdmin depending on setup
 
     def get(self, request):
-        # Fetch consultants who have finished onboarding and are pending review
         pending_consultants = Consultant.objects.filter(status='PENDING_REVIEW').order_by('-created_at')
         serializer = PendingConsultantSerializer(pending_consultants, many=True)
         return Response(api_response(
