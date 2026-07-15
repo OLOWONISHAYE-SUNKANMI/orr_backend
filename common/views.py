@@ -75,3 +75,23 @@ class CurrentUserRoleView(APIView):
             'is_staff': request.user.is_staff,
             'is_superuser': request.user.is_superuser
         })
+
+import redis
+from django.conf import settings
+
+@extend_schema(
+    tags=["System"],
+    summary="Test Redis connection",
+    description="Endpoint to verify if Redis is reachable and working."
+)
+class RedisTestView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        try:
+            redis_url = getattr(settings, 'CELERY_BROKER_URL', 'redis://127.0.0.1:6379/0')
+            r = redis.from_url(redis_url)
+            r.ping()
+            return Response({"success": True, "message": "Redis is working properly", "url": redis_url})
+        except Exception as e:
+            return Response({"success": False, "message": "Redis connection failed", "error": str(e)}, status=500)

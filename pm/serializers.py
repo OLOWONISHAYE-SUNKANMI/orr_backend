@@ -170,9 +170,14 @@ class PMProjectDetailSerializer(serializers.ModelSerializer):
         )
         for opp in opportunities:
             if opp.consultant:
+                name = opp.consultant.user.get_full_name()
+                if not name and hasattr(opp.consultant, 'profile') and opp.consultant.profile.full_name:
+                    name = opp.consultant.profile.full_name
+                if not name:
+                    name = opp.consultant.user.email
                 consultants.append({
                     'id': opp.consultant.id,
-                    'name': opp.consultant.user.get_full_name(),
+                    'name': name,
                     'expertise': opp.consultant.specialization.primary_specialization if hasattr(opp.consultant, 'specialization') else '',
                     'cost': 'TBD',
                 })
@@ -180,9 +185,14 @@ class PMProjectDetailSerializer(serializers.ModelSerializer):
         matches = obj.consultant_matches.all()
         for match in matches:
             if match.consultant and not any(c['id'] == match.consultant.id for c in consultants):
+                name = match.consultant.user.get_full_name()
+                if not name and hasattr(match.consultant, 'profile') and match.consultant.profile.full_name:
+                    name = match.consultant.profile.full_name
+                if not name:
+                    name = match.consultant.user.email
                 consultants.append({
                     'id': match.consultant.id,
-                    'name': match.consultant.user.get_full_name(),
+                    'name': name,
                     'expertise': match.consultant.specialization.primary_specialization if hasattr(match.consultant, 'specialization') else '',
                     'cost': 'TBD',
                 })
@@ -231,17 +241,18 @@ class PMTaskListSerializer(serializers.ModelSerializer):
     assigned_to = UserMiniSerializer(read_only=True)
     sub_task_count = serializers.SerializerMethodField()
     project_id_display = serializers.CharField(source='project.project_id', read_only=True)
+    documents = PMTaskDocumentSerializer(many=True, read_only=True)
 
     class Meta:
         model = PMTask
         fields = [
             'id', 'task_id', 'project', 'project_id_display',
-            'parent_task', 'title', 'task_type', 'task_structure',
+            'parent_task', 'title', 'description', 'task_type', 'task_structure',
             'assigned_to', 'responsible_role', 'priority',
             'status', 'due_date', 'start_date',
             'estimated_hours', 'actual_hours', 'billable_status',
             'pm_review_required', 'admin_review_required',
-            'review_outcome', 'sub_task_count',
+            'review_outcome', 'sub_task_count', 'completion_notes', 'documents',
             'created_at', 'updated_at',
         ]
 
@@ -459,7 +470,12 @@ class PMConsultantMatchSerializer(serializers.ModelSerializer):
         ]
 
     def get_consultant_name(self, obj):
-        return obj.consultant.user.get_full_name()
+        name = obj.consultant.user.get_full_name()
+        if not name and hasattr(obj.consultant, 'profile') and obj.consultant.profile.full_name:
+            name = obj.consultant.profile.full_name
+        if not name:
+            name = obj.consultant.user.email
+        return name
 
     def get_specialization(self, obj):
         try:
@@ -498,7 +514,12 @@ class PMAssignmentSerializer(serializers.ModelSerializer):
         ]
 
     def get_consultant_name(self, obj):
-        return obj.consultant.user.get_full_name()
+        name = obj.consultant.user.get_full_name()
+        if not name and hasattr(obj.consultant, 'profile') and obj.consultant.profile.full_name:
+            name = obj.consultant.profile.full_name
+        if not name:
+            name = obj.consultant.user.email
+        return name
 
     def get_compliance(self, obj):
         try:
@@ -638,11 +659,12 @@ class PMOpportunityResponseSerializer(serializers.Serializer):
 # MEETINGS Serializer
 # ═══════════════════════════════════════════════
 
-from consultation.models import ConsultantMeeting
+from consultation.models import ConsultantMeeting, Consultant
 
 class PMMeetingSerializer(serializers.ModelSerializer):
     consultant_name = serializers.SerializerMethodField()
     consultant_number = serializers.CharField(source='consultant.consultant_number', read_only=True)
+    consultant = serializers.SlugRelatedField(slug_field='consultant_number', queryset=Consultant.objects.all())
     
     class Meta:
         model = ConsultantMeeting

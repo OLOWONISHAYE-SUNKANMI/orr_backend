@@ -84,6 +84,12 @@ from .permissions import IsPMOrAdmin, IsAdminUser, IsConsultantUser, IsAssignedC
 
 logger = logging.getLogger(__name__)
 
+def is_true_admin(user):
+    """Helper to distinguish true admins from PMs who also have is_staff=True."""
+    if not user or not user.is_staff:
+        return False
+    return hasattr(user, 'admin_profile') and user.admin_profile.department != 'PM'
+
 
 # ═══════════════════════════════════════════════════════════
 # AUTH VIEWS
@@ -151,7 +157,7 @@ class PMProjectListCreateView(APIView):
         projects = PMProject.objects.all()
 
         # Filter by role
-        if not request.user.is_staff:
+        if not is_true_admin(request.user):
             # PM sees only their own projects
             projects = projects.filter(assigned_pm=request.user)
 
@@ -653,8 +659,22 @@ class PMTaskSubmitReviewView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        notes = request.data.get('notes', '')
+        deliverable_file = request.data.get('deliverable_file')
+
         task.status = 'submitted_for_review'
+        task.completion_notes = notes
         task.save()
+        
+        if deliverable_file:
+            PMTaskDocument.objects.create(
+                task=task,
+                file=deliverable_file,
+                file_name=deliverable_file.name,
+                uploaded_by=request.user,
+                visibility='pm_admin_only'
+            )
+
         sync_pm_task_to_consultant(task)
 
         return Response(api_response(
@@ -697,13 +717,32 @@ class PMTaskReviewView(APIView):
         if outcome == 'approved':
             task.status = 'completed'
             task.completion_date = timezone.now()
+            msg = f'Your deliverable for task "{task.title}" has been approved! It is now marked as Completed.'
         elif outcome == 'revision_required':
             task.status = 'revision_required'
+            msg = f'Your deliverable for task "{task.title}" requires revisions. Please review and resubmit.'
         elif outcome == 'rejected':
-            task.status = 'cancelled'
+            task.status = 'not_started'
+            msg = f'Your deliverable for task "{task.title}" was rejected and has been moved back to your backlog.'
 
         task.save()
         sync_pm_task_to_consultant(task)
+        
+        # Notify consultant
+        if task.assigned_to and hasattr(task.assigned_to, 'consultant'):
+            from consultation.models import ConsultantMessage, ConsultantNotification
+            ConsultantMessage.objects.create(
+                consultant=task.assigned_to.consultant,
+                pm=request.user,
+                sender='PROJECT_MANAGER',
+                text=msg
+            )
+            ConsultantNotification.objects.create(
+                consultant=task.assigned_to.consultant,
+                title=f"Task {outcome.title().replace('_', ' ')}",
+                text=msg,
+                notif_type='SYSTEM'
+            )
 
         return Response(api_response(
             data={'status': task.status, 'review_outcome': outcome},
@@ -1509,7 +1548,7 @@ class PMDashboardView(APIView):
     def get(self, request):
         user = request.user
 
-        if user.is_staff:
+        if is_true_admin(user):
             projects = PMProject.objects.all()
             tasks = PMTask.objects.all()
             assignments = PMAssignment.objects.all()
@@ -1523,14 +1562,13 @@ class PMDashboardView(APIView):
         
         today = timezone.now().date()
 
-        if user.is_staff:
+        if is_true_admin(user):
             meetings_today = ConsultantMeeting.objects.filter(start_time__date=today).count()
             new_messages = ConsultantMessage.objects.filter(sender='CONSULTANT', created_at__date=today).count()
         else:
-            # If we were strictly filtering by PM, we'd do it here. 
-            # For now, PM sees all meetings and messages in this demo.
-            meetings_today = ConsultantMeeting.objects.filter(start_time__date=today).count()
-            new_messages = ConsultantMessage.objects.filter(sender='CONSULTANT', created_at__date=today).count()
+            consultant_ids = assignments.values_list('consultant_id', flat=True)
+            meetings_today = ConsultantMeeting.objects.filter(consultant_id__in=consultant_ids, start_time__date=today).count()
+            new_messages = ConsultantMessage.objects.filter(pm=user, sender='CONSULTANT', created_at__date=today).count()
 
         data = {
             'projects': {
@@ -1585,9 +1623,14 @@ class PMMeetingListView(APIView):
     def get(self, request):
         user = request.user
         
-        # In this demo environment, PMs should see all consultant meetings
-        # to ensure perfect synchronization. 
-        meetings = ConsultantMeeting.objects.all().order_by('start_time')
+        if is_true_admin(user):
+            meetings = ConsultantMeeting.objects.all().order_by('start_time')
+        else:
+            from django.db.models import Q
+            consultant_ids = PMAssignment.objects.filter(project__assigned_pm=user).values_list('consultant_id', flat=True)
+            meetings = ConsultantMeeting.objects.filter(
+                Q(pm=user) | Q(consultant_id__in=consultant_ids, pm__isnull=True)
+            ).order_by('start_time')
         
         serializer = PMMeetingSerializer(meetings, many=True)
         return Response(api_response(data=serializer.data))
@@ -1626,7 +1669,7 @@ class PMMeetingListView(APIView):
             
         serializer = PMMeetingSerializer(data=data)
         if serializer.is_valid():
-            serializer.save(status='APPROVED') # Meetings created by PM are auto-approved
+            serializer.save(status='APPROVED', pm=request.user) # Meetings created by PM are auto-approved
             return Response(api_response(data=serializer.data))
         return Response(api_response(success=False, data=serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
@@ -1689,8 +1732,9 @@ class PMMessageViewSet(viewsets.ModelViewSet):
         if not self.request.user.is_staff:
             return qs.none()
         
-        # Always filter by current PM unless admin
-        qs = qs.filter(pm=self.request.user)
+        if not is_true_admin(self.request.user):
+            # Always filter by current PM unless admin
+            qs = qs.filter(pm=self.request.user)
         
         # Filter by selected consultant
         cnum = self.request.query_params.get('consultant_id')
