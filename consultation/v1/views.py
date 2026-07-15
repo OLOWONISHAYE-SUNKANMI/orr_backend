@@ -100,7 +100,7 @@ class ConsultantOnboardingView(APIView):
     permission_classes = [AllowAny]
 
     @transaction.atomic
-    def post(self, request):
+    def post(self, request, consultant_id=None):
         serializer = ConsultantOnboardingSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(api_response(success=False, status_code=status.HTTP_400_BAD_REQUEST, data=serializer.errors))
