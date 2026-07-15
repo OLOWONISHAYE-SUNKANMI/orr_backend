@@ -551,7 +551,10 @@ class ConsultantMessageViewSet(viewsets.ModelViewSet):
             qs = qs.filter(consultant__consultant_number=cnum)
         pm_id = self.request.query_params.get('pm_id')
         if pm_id:
-            qs = qs.filter(pm_id=pm_id)
+            if pm_id.isdigit():
+                qs = qs.filter(pm_id=pm_id)
+            else:
+                qs = qs.filter(pm__isnull=True)
         elif self.request.user.is_authenticated and self.request.user.is_staff:
             qs = qs.filter(pm=self.request.user)
             
