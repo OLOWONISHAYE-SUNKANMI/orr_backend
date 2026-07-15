@@ -54,6 +54,7 @@ class ConsultantRegistrationView(APIView):
             ORREmailService.send_welcome_email(
                 recipient_email=email,
                 dashboard_url=f"http://localhost:3000/verify",
+                consultant_number=consultant_id
             )
         except Exception as e:
             # We fail silently to avoid crashing the API if SMTP isn't configured,
@@ -268,6 +269,17 @@ class ConsultantProfileView(APIView):
             data['consultantCategory'] = consultant.specialization.primary_specialization
             data['primarySpecialization'] = consultant.specialization.primary_specialization
             data['secondarySpecializations'] = consultant.specialization.secondary_specializations
+            data['expertiseTags'] = consultant.specialization.expertise_tags
+            data['areasOfSpecialization'] = consultant.specialization.areas_of_specialization
+            data['consultingMethodologies'] = consultant.specialization.consulting_methodologies
+            
+            # Map industryExpertise, falling back to sector_experience from onboarding if empty
+            if consultant.specialization.industry_expertise:
+                data['industryExpertise'] = consultant.specialization.industry_expertise
+            elif hasattr(consultant, 'experience') and consultant.experience.sector_experience:
+                data['industryExpertise'] = consultant.experience.sector_experience
+            else:
+                data['industryExpertise'] = []
 
         # 3. Skills
         data['skills'] = []
@@ -289,9 +301,16 @@ class ConsultantProfileView(APIView):
         # 5. Experience
         if hasattr(consultant, 'experience'):
             data['bio'] = consultant.experience.professional_summary
-            data['industryExpertise'] = consultant.experience.sector_experience
             data['portfolioUrl'] = consultant.experience.portfolio_url
             data['professionalEvidence'] = consultant.experience.professional_evidence
+            
+            data['yearsOfExperience'] = consultant.experience.years_of_experience
+            data['currentCompany'] = consultant.experience.current_company
+            data['previousCompanies'] = consultant.experience.previous_companies
+            data['certifications'] = consultant.experience.certifications
+            data['licenses'] = consultant.experience.licenses
+            data['educationalQualifications'] = consultant.experience.educational_qualifications
+            data['professionalMemberships'] = consultant.experience.professional_memberships
 
         # 6. Work Preference
         if hasattr(consultant, 'work_preference'):
@@ -359,6 +378,14 @@ class ConsultantProfileView(APIView):
                 spec.primary_specialization = data['consultantCategory']
             if 'secondarySpecializations' in data:
                 spec.secondary_specializations = data['secondarySpecializations']
+            if 'expertiseTags' in data:
+                spec.expertise_tags = data['expertiseTags']
+            if 'areasOfSpecialization' in data:
+                spec.areas_of_specialization = data['areasOfSpecialization']
+            if 'consultingMethodologies' in data:
+                spec.consulting_methodologies = data['consultingMethodologies']
+            if 'industryExpertise' in data:
+                spec.industry_expertise = data['industryExpertise']
             spec.save()
             
         # 3. Update IT Competence (Skills & Expertise)
@@ -376,7 +403,61 @@ class ConsultantProfileView(APIView):
                 it_comp.data_handling = data['dataHandling']
             it_comp.save()
             
-        # 4. User Email (Personal)
+        # 4. Update Experience
+        if hasattr(consultant, 'experience'):
+            exp = consultant.experience
+            if 'bio' in data:
+                exp.professional_summary = data['bio']
+            if 'portfolioUrl' in data:
+                exp.portfolio_url = data['portfolioUrl']
+            if 'professionalEvidence' in data:
+                exp.professional_evidence = data['professionalEvidence']
+            if 'yearsOfExperience' in data:
+                try:
+                    exp.years_of_experience = int(data['yearsOfExperience'])
+                except (ValueError, TypeError):
+                    pass
+            if 'currentCompany' in data:
+                exp.current_company = data['currentCompany']
+            if 'previousCompanies' in data:
+                exp.previous_companies = data['previousCompanies']
+            if 'certifications' in data:
+                exp.certifications = data['certifications']
+            if 'licenses' in data:
+                exp.licenses = data['licenses']
+            if 'educationalQualifications' in data:
+                exp.educational_qualifications = data['educationalQualifications']
+            if 'professionalMemberships' in data:
+                exp.professional_memberships = data['professionalMemberships']
+            exp.save()
+
+        # 5. Update Skills
+        if 'skills' in data:
+            consultant.skills.filter(is_custom=False).delete()
+            skills_to_create = []
+            for skill_obj in data['skills']:
+                if isinstance(skill_obj, dict):
+                    name = skill_obj.get('name')
+                    level = skill_obj.get('level', 'Intermediate')
+                else:
+                    name = skill_obj
+                    level = 'Intermediate'
+                if name:
+                    skills_to_create.append(ConsultantSkill(
+                        consultant=consultant,
+                        skill_name=name,
+                        proficiency_level=level
+                    ))
+            ConsultantSkill.objects.bulk_create(skills_to_create)
+
+        # 6. Update Work Preference
+        if hasattr(consultant, 'work_preference'):
+            wp = consultant.work_preference
+            if 'languages' in data:
+                wp.languages = data['languages']
+            wp.save()
+
+        # 7. User Email (Personal)
         if 'email' in data:
             consultant.user.email = data['email']
             consultant.user.save()
@@ -522,6 +603,45 @@ class ConsultantMeetingViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     queryset = ConsultantMeeting.objects.all()
     filterset_fields = ['consultant__consultant_number']
+
+    def create(self, request, *args, **kwargs):
+        from pm.services.google_calendar import generate_google_meet_link
+        from consultation.models import Consultant
+        from django.contrib.auth.models import User
+
+        data = request.data.copy()
+        consultant_id = kwargs.get('consultant_id')
+        if consultant_id:
+            data['consultant'] = consultant_id
+
+        title = data.get('title', 'Consultant Sync')
+        start_time_str = data.get('start_time')
+        end_time_str = data.get('end_time')
+        pm_id = data.get('pm')
+
+        try:
+            from dateutil.parser import parse
+            start_dt = parse(start_time_str)
+            end_dt = parse(end_time_str)
+            
+            attendees = []
+            if pm_id:
+                try:
+                    pm_user = User.objects.get(id=pm_id)
+                    attendees.append(pm_user.email)
+                except User.DoesNotExist:
+                    pass
+            
+            meet_link = generate_google_meet_link(start_dt, end_dt, title, attendees)
+            data['join_link'] = meet_link
+        except Exception:
+            pass # fallback if parsing fails
+
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 class ConsultantNotificationViewSet(viewsets.ModelViewSet):
     serializer_class = ConsultantNotificationSerializer

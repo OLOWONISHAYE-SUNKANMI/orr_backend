@@ -96,10 +96,15 @@ class ORREmailService:
         return cls._send('New Login Detected - ORR Solutions', recipient_email, html)
 
     @classmethod
-    def send_welcome_email(cls, recipient_email: str, dashboard_url: str = 'https://orr.solutions/dashboard'):
+    def send_welcome_email(cls, recipient_email: str, dashboard_url: str = 'https://orr.solutions/dashboard', consultant_number: str = None):
         """04 — Welcome email after registration."""
+        consultant_number_block = ""
+        if consultant_number:
+            consultant_number_block = f"<div style='margin: 20px 0; padding: 15px; background-color: #0A1F30; border-left: 4px solid #0EC277; border-radius: 4px;'><p style='margin: 0; color: #ffffff;'>Your Consultant ID is: <strong style='color: #0EC277; font-size: 18px;'>{consultant_number}</strong></p><p style='margin: 5px 0 0 0; font-size: 13px; color: #94a3b8;'>Please keep this ID safe as you will need it for verification.</p></div>"
+
         html = cls._render('04-welcome-email.html', {
             'dashboard_url': dashboard_url,
+            'consultant_number_block': consultant_number_block,
         })
         return cls._send('Welcome to ORR Solutions!', recipient_email, html)
 

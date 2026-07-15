@@ -59,6 +59,12 @@ class ConsultantSpecialization(Audit):
     consultant = models.OneToOneField(Consultant, on_delete=models.CASCADE, related_name='specialization')
     primary_specialization = models.CharField(max_length=100, choices=PILLAR_CHOICES, blank=True)
     secondary_specializations = models.JSONField(default=list, blank=True)
+    
+    # Newly added fields to match frontend ProfileTab
+    expertise_tags = models.JSONField(default=list, blank=True)
+    areas_of_specialization = models.JSONField(default=list, blank=True)
+    consulting_methodologies = models.JSONField(default=list, blank=True)
+    industry_expertise = models.JSONField(default=list, blank=True)
 
     def __str__(self):
         return f"{self.consultant.consultant_number} - {self.primary_specialization}"
@@ -98,8 +104,16 @@ class ConsultantExperience(Audit):
     sector_experience = models.JSONField(default=list, blank=True)
     professional_evidence = models.TextField(blank=True)
     portfolio_url = models.URLField(blank=True)
-    # FileField needs media configuration, storing as URL or standard FileField depending on setup
     cv_file = models.FileField(upload_to='consultant_cvs/', null=True, blank=True)
+    
+    # Newly added fields to match frontend ProfileTab
+    years_of_experience = models.IntegerField(default=0, blank=True, null=True)
+    current_company = models.CharField(max_length=200, blank=True)
+    previous_companies = models.JSONField(default=list, blank=True)
+    certifications = models.JSONField(default=list, blank=True)
+    licenses = models.JSONField(default=list, blank=True)
+    educational_qualifications = models.JSONField(default=list, blank=True)
+    professional_memberships = models.JSONField(default=list, blank=True)
 
     def __str__(self):
         return f"Experience for {self.consultant.consultant_number}"
@@ -268,6 +282,7 @@ class ConsultantMeeting(Audit):
         ('CANCELLED', 'Cancelled'),
     ]
     consultant = models.ForeignKey(Consultant, on_delete=models.CASCADE, related_name='meetings')
+    pm = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='consultant_meetings')
     title = models.CharField(max_length=255)
     start_time = models.DateTimeField(null=True, blank=True)
     end_time = models.DateTimeField(null=True, blank=True)
