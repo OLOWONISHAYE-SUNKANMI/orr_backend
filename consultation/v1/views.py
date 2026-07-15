@@ -103,7 +103,10 @@ class ConsultantOnboardingView(APIView):
     def post(self, request, consultant_id=None):
         serializer = ConsultantOnboardingSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(api_response(success=False, status_code=status.HTTP_400_BAD_REQUEST, data=serializer.errors))
+            return Response(
+                api_response(success=False, status_code=status.HTTP_400_BAD_REQUEST, data=serializer.errors),
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         data = serializer.validated_data
         consultant_id = data['consultantId']
@@ -111,9 +114,10 @@ class ConsultantOnboardingView(APIView):
         try:
             consultant = Consultant.objects.get(consultant_number=consultant_id)
         except Consultant.DoesNotExist:
-            return Response(api_response(
-                success=False, status_code=status.HTTP_404_NOT_FOUND, message="Consultant not found."
-            ))
+            return Response(
+                api_response(success=False, status_code=status.HTTP_404_NOT_FOUND, message="Consultant not found."),
+                status=status.HTTP_404_NOT_FOUND
+            )
 
         # 1. Update Consultant Status
         consultant.status = 'PENDING_REVIEW'
