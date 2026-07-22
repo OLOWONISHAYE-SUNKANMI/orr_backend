@@ -296,6 +296,16 @@ def stripe_webhook(request):
         event = stripe.Webhook.construct_event(payload, sig_header, settings.STRIPE_WEBHOOK_SECRET)
     except Exception as e:
         logger.exception("Invalid Stripe webhook signature")
+        try:
+            from admin_portal.orr_email_service import ORREmailService
+            ORREmailService.send_webhook_failure(
+                recipient_email=getattr(settings, "DEFAULT_FROM_EMAIL", "admin@orr.solutions"),
+                source_service="Stripe",
+                endpoint_url="/api/v1/payment/webhook/",
+                payload_json=str(payload[:200]) + "..."
+            )
+        except Exception as email_err:
+            logger.error(f"Failed to send webhook failure email: {email_err}")
         return HttpResponse(status=400)
 
     

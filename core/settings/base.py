@@ -298,7 +298,8 @@ CORS_ALLOWED_ORIGINS = [
     "https://orr-solutions.vercel.app",
     "https://orr.solutions",
     "https://www.orr.solutions",
-
+    "https://consultant.orr.solutions",
+    "https://projectmanager.orr.solutions",
 ]
 
 CORS_ALLOW_HEADERS = [
@@ -344,8 +345,8 @@ CSRF_TRUSTED_ORIGINS = [
     "https://admin.orr.solutions",
     "https://orr-admin-frontend.vercel.app",
     "https://orr-solutions-admin.vercel.app",
-    "https://orr-backend-105825824472.asia-southeast2.run.app",
-    "https://orr-backend-105825824472.asia-southeast2.run.app",
+    "http://127.0.0.1:8000",
+    "http://127.0.0.1:8000",
     "https://orr.solutions",
     "https://orr-solutions.vercel.app",
     "https://orr-solutions-admin.vercel.app",
@@ -355,6 +356,8 @@ CSRF_TRUSTED_ORIGINS = [
     "https://orr-solutions.vercel.app",
     "https://orr.solutions",
     "https://www.orr.solutions",
+    "https://consultant.orr.solutions",
+    "https://projectmanager.orr.solutions",
 ]
 
 SESSION_COOKIE_SECURE = True
@@ -382,6 +385,8 @@ CSRF_TRUSTED_ORIGINS += [
     "https://admin.orr.solutions",
     "https://orr-admin-frontend.vercel.app",
     "https://orr-solutions-admin.vercel.app",
+    "https://consultant.orr.solutions",
+    "https://projectmanager.orr.solutions",
 ]
 
 # CSRF Settings

@@ -70,3 +70,56 @@ def process_consultant_approval(sender, instance, created, **kwargs):
             logger.info(f"Workspace setup email sent to {personal_email}")
         except Exception as e:
             logger.error(f"Failed to send workspace setup email: {e}")
+
+@receiver(pre_save, sender='consultation.ConsultantInvoice')
+def capture_old_invoice_status(sender, instance, **kwargs):
+    if instance.pk:
+        try:
+            from .models import ConsultantInvoice
+            old_instance = ConsultantInvoice.objects.get(pk=instance.pk)
+            instance._old_status = old_instance.status
+        except ConsultantInvoice.DoesNotExist:
+            instance._old_status = None
+    else:
+        instance._old_status = None
+
+@receiver(post_save, sender='consultation.ConsultantInvoice')
+def process_invoice_notifications(sender, instance, created, **kwargs):
+    old_status = getattr(instance, '_old_status', None)
+    
+    try:
+        from admin_portal.orr_email_service import ORREmailService
+        recipient_email = instance.consultant.user.email
+        
+        # 1. Invoice submitted
+        if created and instance.status == 'SUBMITTED':
+            ORREmailService.send_consultant_invoice_confirm(
+                recipient_email=recipient_email,
+                invoice_id=instance.invoice_number,
+                submission_date=instance.submitted_at.strftime("%Y-%m-%d"),
+                tracking_url=f"https://orr.solutions/consultant/invoices/{instance.invoice_number}"
+            )
+            
+        # 2. Status change (e.g. APPROVED or REJECTED/UNDER_REVIEW)
+        elif not created and old_status != instance.status:
+            if instance.status == 'PAID':
+                # 3. Paid
+                ORREmailService.send_consultant_payout(
+                    recipient_email=recipient_email,
+                    invoice_id=instance.invoice_number,
+                    amount_paid=f"{instance.amount}",
+                    payout_date=instance.updated_at.strftime("%Y-%m-%d") if hasattr(instance, 'updated_at') else "today",
+                    dashboard_url=f"https://orr.solutions/consultant/invoices/{instance.invoice_number}"
+                )
+            else:
+                ORREmailService.send_consultant_invoice_status(
+                    recipient_email=recipient_email,
+                    invoice_id=instance.invoice_number,
+                    new_status=instance.status,
+                    admin_comments=instance.reviewer_notes or "Status updated by admin.",
+                    status_url=f"https://orr.solutions/consultant/invoices/{instance.invoice_number}"
+                )
+                
+    except Exception as e:
+        logger.error(f"Failed to send invoice notification: {e}")
+

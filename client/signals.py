@@ -146,6 +146,18 @@ def handle_client_request_post_save(sender, instance, created, **kwargs):
                     'request_pk': instance.pk,
                 }
             )
+            
+            # Send email confirmation
+            from admin_portal.orr_email_service import ORREmailService
+            import datetime
+            ORREmailService.send_form_confirmation(
+                recipient_email=instance.submitted_by.email,
+                form_name=instance.request_title,
+                reference_id=instance.request_id,
+                submission_date=datetime.datetime.now().strftime("%Y-%m-%d"),
+                summary_text=f"Your request has been submitted with urgency: {instance.urgency}",
+                tracking_link=f"https://orr.solutions/client/requests/{instance.request_id}"
+            )
         except Exception:
             pass
 

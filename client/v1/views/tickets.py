@@ -55,8 +55,38 @@ class ClientTicketCreateAPIView(APIView):
 
         ticket = serializer.save(
             client=client,
-
         )
+
+        # Trigger emails
+        try:
+            from admin_portal.orr_email_service import ORREmailService
+            import datetime
+            
+            # Send confirmation to client
+            ORREmailService.send_form_confirmation(
+                recipient_email=user.email,
+                form_name=ticket.subject,
+                reference_id=ticket.ticket_id,
+                submission_date=datetime.datetime.now().strftime("%Y-%m-%d"),
+                summary_text=ticket.description[:100] + "..." if len(ticket.description) > 100 else ticket.description,
+                tracking_link=f"https://orr.solutions/dashboard/tickets/{ticket.ticket_id}"
+            )
+            
+            # Notify admins
+            from django.contrib.auth.models import User as AdminUser
+            admin_emails = list(AdminUser.objects.filter(is_staff=True, is_active=True).values_list('email', flat=True))
+            if admin_emails:
+                ORREmailService.send_admin_notification(
+                    recipient_emails=admin_emails,
+                    submitter_name=user.get_full_name() or user.username,
+                    submitter_email=user.email,
+                    form_name="Client Inquiry Ticket",
+                    reference_id=ticket.ticket_id,
+                    admin_link=f"https://orr.solutions/admin/tickets/{ticket.ticket_id}"
+                )
+        except Exception as e:
+            import logging
+            logging.error(f"Failed to send ticket creation emails: {e}")
 
         return Response(
             {

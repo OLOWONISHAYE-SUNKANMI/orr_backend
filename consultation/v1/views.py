@@ -533,6 +533,75 @@ class ConsultantInvoiceViewSet(viewsets.ModelViewSet):
     queryset = ConsultantInvoice.objects.all()
     filterset_fields = ['consultant__consultant_number', 'status']
 
+    def perform_create(self, serializer):
+        invoice = serializer.save()
+        
+        # Trigger Templates 25 and 27 on invoice submission
+        try:
+            from admin_portal.orr_email_service import ORREmailService
+            import datetime
+            
+            # Send confirmation to consultant
+            if invoice.consultant and invoice.consultant.user.email:
+                ORREmailService.send_consultant_invoice_confirm(
+                    recipient_email=invoice.consultant.user.email,
+                    consultant_name=invoice.consultant.user.get_full_name() or invoice.consultant.user.username,
+                    invoice_id=invoice.invoice_number,
+                    amount=f"{invoice.currency} {invoice.amount}",
+                    submission_date=datetime.datetime.now().strftime("%Y-%m-%d"),
+                    invoice_url=f"https://orr.solutions/consultant/invoices/{invoice.id}"
+                )
+            
+            # Notify admins
+            from django.contrib.auth.models import User as AdminUser
+            admin_emails = list(AdminUser.objects.filter(is_staff=True, is_active=True).values_list('email', flat=True))
+            if admin_emails:
+                ORREmailService.send_admin_invoice_review(
+                    recipient_emails=admin_emails,
+                    consultant_name=invoice.consultant.user.get_full_name() if invoice.consultant else "Consultant",
+                    invoice_id=invoice.invoice_number,
+                    amount=f"{invoice.currency} {invoice.amount}",
+                    admin_invoice_url=f"https://orr.solutions/admin/consultant-invoices/{invoice.id}"
+                )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Failed to send consultant invoice emails: {e}")
+
+    def perform_update(self, serializer):
+        old_status = serializer.instance.status
+        invoice = serializer.save()
+        new_status = invoice.status
+        
+        if old_status != new_status and invoice.consultant and invoice.consultant.user.email:
+            try:
+                from admin_portal.orr_email_service import ORREmailService
+                import datetime
+                
+                # If paid, trigger 28
+                if new_status == 'PAID':
+                    ORREmailService.send_consultant_payment_sent(
+                        recipient_email=invoice.consultant.user.email,
+                        consultant_name=invoice.consultant.user.get_full_name() or invoice.consultant.user.username,
+                        invoice_id=invoice.invoice_number,
+                        amount=f"{invoice.currency} {invoice.amount}",
+                        payment_date=datetime.datetime.now().strftime("%Y-%m-%d"),
+                        payment_reference="Check Portal",
+                        invoice_url=f"https://orr.solutions/consultant/invoices/{invoice.id}"
+                    )
+                else:
+                    # Otherwise trigger 26 for general status update
+                    # Assuming status might be 'APPROVED', 'REJECTED', 'PROCESSING'
+                    ORREmailService.send_consultant_invoice_status(
+                        recipient_email=invoice.consultant.user.email,
+                        invoice_id=invoice.invoice_number,
+                        new_status=new_status,
+                        status_reason="Status has been updated by admin.",
+                        invoice_url=f"https://orr.solutions/consultant/invoices/{invoice.id}"
+                    )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Failed to send consultant invoice status emails: {e}")
+
 class ConsultantDocumentViewSet(viewsets.ModelViewSet):
     serializer_class = ConsultantDocumentSerializer
     permission_classes = [AllowAny]
@@ -579,7 +648,18 @@ class ConsultantMessageViewSet(viewsets.ModelViewSet):
         if not serializer.validated_data.get('pm') and self.request.user.is_authenticated and self.request.user.is_staff:
             save_kwargs['pm'] = self.request.user
 
-        serializer.save(**save_kwargs)
+        msg = serializer.save(**save_kwargs)
+        
+        # If the message is sent by a consultant (sender='CONSULTANT'), notify the PM
+        if msg.sender == 'CONSULTANT' and msg.pm and msg.consultant:
+            from admin_portal.models import SystemNotification
+            consultant_name = msg.consultant.user.get_full_name() or msg.consultant.consultant_number
+            SystemNotification.objects.create(
+                notification_type='message_received',
+                title='New Message from Consultant',
+                message=f'Consultant {consultant_name} sent a new message.',
+                recipient=msg.pm,
+            )
 
     @action(detail=False, methods=['get'])
     def directory(self, request):

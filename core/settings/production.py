@@ -44,6 +44,8 @@ CORS_ALLOWED_ORIGINS = [
     "https://admin.orr.solutions",
     "https://orr.solutions",
     "https://www.orr.solutions",
+    "https://consultant.orr.solutions",
+    "https://projectmanager.orr.solutions",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:3001",
@@ -78,14 +80,16 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:3005",
     "http://localhost:3006",
     "http://127.0.0.1:3006",
-    "https://orr-backend-105825824472.asia-southeast2.run.app",
-    "https://orr-backend-105825824472.asia-southeast2.run.app",
+    "http://127.0.0.1:8000",
+    "http://127.0.0.1:8000",
     "https://orr.solutions",
     "https://www.orr.solutions",
     "https://orr-solutions.vercel.app",
     "https://orr-admin-frontend.vercel.app",
     "https://orr-solutions-admin.vercel.app",
     "https://admin.orr.solutions",
+    "https://consultant.orr.solutions",
+    "https://projectmanager.orr.solutions",
 ]
 
 # Storage settings for Django 4.2+

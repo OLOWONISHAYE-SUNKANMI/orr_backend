@@ -59,6 +59,17 @@ class VerifyEmailView(views.APIView):
         user.is_active = True
         user.save()
 
+        # Send Welcome Email (Template 04)
+        try:
+            from admin_portal.orr_email_service import ORREmailService
+            ORREmailService.send_welcome_email(
+                recipient_email=user.email,
+                dashboard_url="https://orr.solutions/dashboard"
+            )
+        except Exception as e:
+            import logging
+            logging.error(f"Failed to send welcome email: {e}")
+
         return Response(
             {"message": "Email verified successfully. You may now log in."},
             status=status.HTTP_200_OK,

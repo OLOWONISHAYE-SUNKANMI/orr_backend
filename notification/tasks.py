@@ -24,6 +24,85 @@ def send_email_task(subject, recipient_email, template_name, context):
         raise smtp_error  
 
 
+# -------------------------------------------------------------------------
+# System Alert Tasks
+# -------------------------------------------------------------------------
+
+@shared_task
+def send_system_error_alert_task(error_code, error_message, admin_email="admin@orr.solutions"):
+    from admin_portal.orr_email_service import ORREmailService
+    try:
+        ORREmailService.send_system_error(
+            recipient_email=admin_email,
+            error_code=error_code,
+            error_message=error_message,
+            system_status_url="https://orr.solutions/admin/system"
+        )
+    except Exception as e:
+        logger.error(f"Failed to send system error alert: {e}")
+
+@shared_task
+def send_security_alert_task(user_email, activity_type, location, ip_address):
+    from admin_portal.orr_email_service import ORREmailService
+    try:
+        ORREmailService.send_security_alert(
+            recipient_email=user_email,
+            activity_type=activity_type,
+            location=location,
+            ip_address=ip_address,
+            secure_account_url="https://orr.solutions/security"
+        )
+    except Exception as e:
+        logger.error(f"Failed to send security alert: {e}")
+
+# -------------------------------------------------------------------------
+# Marketing and Newsletter Tasks
+# -------------------------------------------------------------------------
+
+@shared_task
+def send_marketing_newsletter_task(user_email, month_year, highlights):
+    from admin_portal.orr_email_service import ORREmailService
+    try:
+        ORREmailService.send_newsletter(
+            recipient_email=user_email,
+            month_year=month_year,
+            highlights=highlights,
+            newsletter_url="https://orr.solutions/newsletter"
+        )
+    except Exception as e:
+        logger.error(f"Failed to send newsletter: {e}")
+
+@shared_task
+def send_reengagement_emails():
+    """Periodic task to send re-engagement emails to users inactive for > 30 days"""
+    from datetime import timedelta
+    from django.utils import timezone
+    from django.contrib.auth.models import User
+    from admin_portal.orr_email_service import ORREmailService
+    
+    # Find users who haven't logged in for exactly 30 days
+    # (Using exactly 30 days so they don't get spammed every day after day 30)
+    target_date_start = timezone.now() - timedelta(days=31)
+    target_date_end = timezone.now() - timedelta(days=30)
+    
+    inactive_users = User.objects.filter(
+        is_active=True,
+        last_login__gte=target_date_start,
+        last_login__lte=target_date_end
+    ).exclude(email="")
+    
+    for user in inactive_users:
+        try:
+            ORREmailService.send_reengagement(
+                recipient_email=user.email,
+                user_name=user.get_full_name() or user.username,
+                recent_updates="We've launched new features and performance improvements.",
+                login_url="https://orr.solutions/login"
+            )
+        except Exception as e:
+            logger.error(f"Failed to send re-engagement email to {user.email}: {e}")
+
+
 def send_via_smtp(subject, recipient_email, html_content):
     """SMTP sending using Django EmailBackend"""
     msg = EmailMultiAlternatives(

@@ -303,6 +303,21 @@ class InvoiceGenerationView(APIView):
             plan=plan
         )
         
+        due_date_str = due_date or (timezone.now() + timedelta(days=30)).date().isoformat()
+        
+        try:
+            from admin_portal.orr_email_service import ORREmailService
+            ORREmailService.send_invoice_generated(
+                recipient_email=user.email,
+                invoice_id=invoice.stripe_invoice_id,
+                total_amount=f"USD {amount}",
+                due_date=due_date_str,
+                payment_url=f"https://orr.solutions/billing/pay/{invoice.stripe_invoice_id}"
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Failed to send invoice generated email: {e}")
+        
         return {
             "status": "success",
             "message": "Invoice generated successfully",

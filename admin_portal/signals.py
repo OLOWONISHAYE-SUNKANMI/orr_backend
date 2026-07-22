@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User
-from django.db.models.signals import post_delete, post_save
+from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 from django.apps import apps
@@ -15,6 +15,7 @@ from .models import (
     Ticket,
     TicketMessage,
     WalletTransaction,
+    ApprovalQueue,
 )
 from .auto_reply_service import AutoReplyService
 
@@ -49,9 +50,22 @@ def ticket_created_notification(sender, instance, created, **kwargs):
         )
 
 
+@receiver(pre_save, sender=Meeting)
+def capture_old_meeting_status(sender, instance, **kwargs):
+    if instance.pk:
+        try:
+            old_instance = Meeting.objects.get(pk=instance.pk)
+            instance._old_status = old_instance.status
+        except Meeting.DoesNotExist:
+            instance._old_status = None
+    else:
+        instance._old_status = None
+
 @receiver(post_save, sender=Meeting)
-def meeting_created_notification(sender, instance, created, **kwargs):
-    """Create notification when new meeting is requested"""
+def meeting_notification_handler(sender, instance, created, **kwargs):
+    """Create notification when new meeting is requested and send emails on status change"""
+    old_status = getattr(instance, '_old_status', None)
+
     if created:
         # Notify all admin users about new meeting request
         admin_users = User.objects.filter(
@@ -67,18 +81,84 @@ def meeting_created_notification(sender, instance, created, **kwargs):
                 related_meeting=instance,
                 related_client=instance.client,
             )
+            
+    # Send Email Notifications for Meeting Status
+    try:
+        from .orr_email_service import ORREmailService
+        recipient_email = instance.client.user.email
+        meeting_time = instance.confirmed_datetime.strftime("%Y-%m-%d %H:%M UTC") if instance.confirmed_datetime else instance.requested_datetime.strftime("%Y-%m-%d %H:%M UTC")
+        
+        if instance.status == 'confirmed' and (created or old_status != 'confirmed'):
+            ORREmailService.send_meeting_scheduled(
+                recipient_email=recipient_email,
+                meeting_topic=instance.get_meeting_type_display(),
+                meeting_time=meeting_time,
+                meeting_link=instance.meeting_link or "Link will be provided",
+                calendar_url=f"https://orr.solutions/meetings/{instance.id}"
+            )
+        elif instance.status == 'rescheduled' and old_status != 'rescheduled':
+            ORREmailService.send_meeting_rescheduled(
+                recipient_email=recipient_email,
+                meeting_topic=instance.get_meeting_type_display(),
+                new_meeting_time=meeting_time,
+                meeting_link=instance.meeting_link or "Link will be provided"
+            )
+        elif instance.status in ['cancelled', 'declined'] and old_status not in ['cancelled', 'declined']:
+            ORREmailService.send_meeting_cancelled(
+                recipient_email=recipient_email,
+                meeting_topic=instance.get_meeting_type_display(),
+                cancellation_reason="Meeting was cancelled or declined by admin.",
+                reschedule_url="https://orr.solutions/meetings/request"
+            )
+    except Exception as e:
+        logger.error(f"Failed to send meeting notification email: {e}")
+
+
+@receiver(pre_save, sender=Content)
+def capture_old_content_status(sender, instance, **kwargs):
+    if instance.pk:
+        try:
+            old_instance = Content.objects.get(pk=instance.pk)
+            instance._old_status = old_instance.status
+        except Content.DoesNotExist:
+            instance._old_status = None
+    else:
+        instance._old_status = None
 
 
 @receiver(post_save, sender=Content)
 def content_published_notification(sender, instance, created, **kwargs):
-    """Create audit log when content is published"""
-    if not created and instance.status == "published" and instance.published_at:
+    """Create audit log and send announcements when content is published"""
+    old_status = getattr(instance, '_old_status', None)
+    
+    if not created and instance.status == "published" and old_status != "published":
+        # Create audit log
         AuditLog.objects.create(
             action="publish",
             model_name="Content",
             object_id=str(instance.pk),
             description=f"Content published: {instance.title}",
         )
+
+        # Broadcast Feature Announcement if it's an announcement
+        if instance.content_type == "announcement":
+            try:
+                from .orr_email_service import ORREmailService
+                # Send to all active users across different portals (simplified for integration: sending to admins and clients here)
+                from django.contrib.auth.models import User
+                users = User.objects.filter(is_active=True).exclude(email="")
+                
+                for user in users:
+                    ORREmailService.send_feature_announcement(
+                        recipient_email=user.email,
+                        feature_name=instance.title,
+                        feature_brief=instance.excerpt or "Check out our latest update!",
+                        feature_screenshot_url="https://orr.solutions/images/feature-placeholder.jpg",
+                        try_now_url="https://orr.solutions/dashboard",
+                        changelog_url="https://orr.solutions/changelog"
+                    )
+            except Exception as e:
+                logger.error(f"Failed to send feature announcement emails: {e}")
 
 
 @receiver(post_save, sender=User)
@@ -193,3 +273,75 @@ def sync_wallet_balance(sender, instance, created, **kwargs):
                 )
             except Exception as e:
                 logger.error(f"Failed to send wallet top-up email: {e}")
+
+@receiver(pre_save, sender=ApprovalQueue)
+def capture_old_approval_status(sender, instance, **kwargs):
+    if instance.pk:
+        try:
+            old = ApprovalQueue.objects.get(pk=instance.pk)
+            instance._old_status = old.status
+        except ApprovalQueue.DoesNotExist:
+            instance._old_status = None
+    else:
+        instance._old_status = None
+
+@receiver(post_save, sender=ApprovalQueue)
+def handle_approval_queue_notifications(sender, instance, created, **kwargs):
+    old_status = getattr(instance, '_old_status', None)
+    
+    try:
+        from .orr_email_service import ORREmailService
+        
+        # In a real app, you might look up the requester's email.
+        # Assuming requested_by holds a username or ID that we can query.
+        requester_user = User.objects.filter(username=instance.requested_by).first()
+        requester_email = requester_user.email if requester_user else None
+        
+        if created:
+            # Send template 36 to super admins
+            super_admins = User.objects.filter(admin_profile__role__name='super_admin', is_active=True)
+            for sa in super_admins:
+                ORREmailService.send_admin_approval_request(
+                    recipient_email=sa.email,
+                    requester_name=instance.requested_by_name or instance.requested_by,
+                    action_type=instance.action_type,
+                    request_details="Please review the pending action in the approval queue.",
+                    review_url=f"https://orr.solutions/admin/approvals/{instance.id}"
+                )
+        elif old_status != instance.status and instance.status in ['APPROVED', 'REJECTED']:
+            # Send template 37 to requester
+            if requester_email:
+                ORREmailService.send_admin_approval_status(
+                    recipient_email=requester_email,
+                    action_type=instance.action_type,
+                    approval_status=instance.status,
+                    reviewer_comments=instance.rejection_reason or "No comments provided."
+                )
+    except Exception as e:
+        logger.error(f"Failed to send approval queue emails: {e}")
+
+@receiver(pre_save, sender=AdminProfile)
+def capture_old_admin_role(sender, instance, **kwargs):
+    if instance.pk:
+        try:
+            old = AdminProfile.objects.get(pk=instance.pk)
+            instance._old_role_id = old.role_id
+        except AdminProfile.DoesNotExist:
+            instance._old_role_id = None
+    else:
+        instance._old_role_id = None
+
+@receiver(post_save, sender=AdminProfile)
+def handle_admin_role_change(sender, instance, created, **kwargs):
+    old_role_id = getattr(instance, '_old_role_id', None)
+    if not created and old_role_id != instance.role_id and instance.role:
+        try:
+            from .orr_email_service import ORREmailService
+            ORREmailService.send_role_change_notification(
+                recipient_email=instance.user.email,
+                new_role=instance.role.get_name_display(),
+                permissions_summary=f"Role changed to {instance.role.name}",
+                portal_url="https://orr.solutions/admin"
+            )
+        except Exception as e:
+            logger.error(f"Failed to send role change email: {e}")

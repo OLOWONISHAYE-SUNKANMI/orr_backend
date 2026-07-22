@@ -145,6 +145,44 @@ class PMProjectListSerializer(serializers.ModelSerializer):
         return None
 
 
+class PMConsultantProjectDetailSerializer(serializers.ModelSerializer):
+    """Consultant-facing project detail serializer (filtered fields)."""
+    client_name = serializers.SerializerMethodField()
+    documents = serializers.SerializerMethodField()
+    assignment_scope = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PMProject
+        fields = [
+            'id', 'project_id', 'title', 'client_name',
+            'service_category', 'project_type',
+            'consultant_facing_summary', 'consultant_instructions',
+            'target_deadline', 'urgency', 'status',
+            'documents', 'assignment_scope'
+        ]
+
+    def get_client_name(self, obj):
+        if obj.client:
+            return obj.client.company
+        return "Unknown Client"
+
+    def get_documents(self, obj):
+        # Only return documents that have 'consultant_access'
+        # Or you can filter based on visibility/document_access logic
+        # For now, let's keep it simple and just return documents the consultant can access
+        # Assuming PMAssignment handles document_access.
+        # This will be populated properly in the view or here if we pass the consultant in context
+        return []
+
+    def get_assignment_scope(self, obj):
+        consultant = self.context.get('consultant')
+        if consultant:
+            assignment = obj.assignments.filter(consultant=consultant).first()
+            if assignment:
+                return assignment.assignment_scope
+        return None
+
+
 class PMProjectDetailSerializer(serializers.ModelSerializer):
     """Full serializer for project detail views."""
     assigned_pm = UserMiniSerializer(read_only=True)

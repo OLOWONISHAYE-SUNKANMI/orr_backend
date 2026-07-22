@@ -1,23 +1,18 @@
 from client.utils import build_verify_password_url
-from notification.utils import notify_user
 
 
 def send_email_verification_notification(user):
     """
     Send verification email to a newly registered user.
+    Uses branded ORR template: 01-email-verification.html
     """
+    from admin_portal.orr_email_service import ORREmailService
+
     verification_url = build_verify_password_url(user)
 
-    notify_user(
-        user,
-        "Verify Your Email Address",
-        "Please verify your email to activate your account.",
-        ["email"],
-        {
-            "template": "accounts/email_verification.html",
-            "context": {
-                "name": user.username or user.email,
-                "verification_url": verification_url,
-            },
-        },
+    ORREmailService.send_email_verification(
+        recipient_email=user.email,
+        verification_link=verification_url,
+        verification_token=verification_url.split('/')[-1] if '/' in verification_url else '',
     )
+

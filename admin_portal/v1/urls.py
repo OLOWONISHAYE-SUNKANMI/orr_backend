@@ -599,6 +599,7 @@ vault_patterns = [
     path("documents/create-google-doc/", views_google.create_google_doc, name="vault-create-google-doc"),
     path("documents/batch-update/", vault.batch_update_documents, name="vault-documents-batch-update"),
     path("folders/", vault.VaultFolderListView.as_view(), name="vault-folders-list"),
+    path("folders/<int:pk>/", vault.VaultFolderDetailView.as_view(), name="vault-folder-detail"),
     path("activity/", vault.VaultActivityListView.as_view(), name="vault-activity-list"),
 ]
 

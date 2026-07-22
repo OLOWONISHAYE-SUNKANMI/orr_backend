@@ -259,8 +259,67 @@ class VaultFolderListView(APIView):
 
 
 # ---------------------------------------------------------------------------
-# VaultDocumentListView – GET list / POST create (file upload)
+# VaultFolderDetailView  – GET single / PATCH update / DELETE
 # ---------------------------------------------------------------------------
+
+@extend_schema(tags=["vault"])
+class VaultFolderDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get_folder(self, pk, user):
+        try:
+            folder = VaultFolder.objects.select_related('client__user', 'parent').get(pk=pk)
+        except VaultFolder.DoesNotExist:
+            return None, "Folder not found."
+
+        if _is_admin(user):
+            return folder, None
+
+        client = _get_client(user)
+        if not client or folder.client_id != client.id:
+            return None, "You do not have permission to access this folder."
+
+        return folder, None
+
+    def get(self, request, pk):
+        folder, err = self._get_folder(pk, request.user)
+        if err:
+            return Response({"status": "error", "message": err}, status=status.HTTP_403_FORBIDDEN)
+        if not folder:
+            return Response({"status": "error", "message": "Folder not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = VaultFolderSerializer(folder, context={'request': request})
+        return Response({"status": "success", "data": serializer.data})
+
+    def patch(self, request, pk):
+        folder, err = self._get_folder(pk, request.user)
+        if err:
+            return Response({"status": "error", "message": err}, status=status.HTTP_403_FORBIDDEN)
+        if not folder:
+            return Response({"status": "error", "message": "Folder not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = VaultFolderCreateSerializer(folder, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"status": "success", "data": VaultFolderSerializer(folder, context={'request': request}).data})
+        return Response({"status": "error", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        folder, err = self._get_folder(pk, request.user)
+        if err:
+            return Response({"status": "error", "message": err}, status=status.HTTP_403_FORBIDDEN)
+        if not folder:
+            return Response({"status": "error", "message": "Folder not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Orphan documents instead of deleting them
+        ClientDocument.objects.filter(folder=folder).update(folder=None)
+        # Orphan child folders
+        VaultFolder.objects.filter(parent=folder).update(parent=None)
+        folder.delete()
+        return Response({"status": "success", "message": "Folder deleted."}, status=status.HTTP_204_NO_CONTENT)
+
+
+
 
 @extend_schema(tags=["vault"])
 class VaultDocumentListView(APIView):

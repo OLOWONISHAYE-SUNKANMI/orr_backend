@@ -79,6 +79,7 @@ User = get_user_model()
 
 class GoogleLoginSerializer(serializers.Serializer):
     credential = serializers.CharField()
+    portal = serializers.CharField(required=False, allow_null=True, default="client")
 
 @extend_schema(
     tags=["Authentication"],
@@ -97,6 +98,7 @@ class GoogleLoginView(APIView):
         serializer.is_valid(raise_exception=True)
 
         token = serializer.validated_data["credential"]
+        portal = serializer.validated_data.get("portal", "client")
         client_id = os.environ.get("GOOGLE_CLIENT_ID")
         
         try:
@@ -121,7 +123,23 @@ class GoogleLoginView(APIView):
                 
             # Find or create user
             user = User.objects.filter(email__iexact=email).first()
+            is_new_user = False
+            
+            # If the portal is admin or PM, the user MUST already exist and have the correct profile.
+            if portal in ["admin", "pm"]:
+                if not user:
+                    return Response(
+                        {"message": "Account not found. Access denied."},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                if not hasattr(user, 'admin_profile'):
+                    return Response(
+                        {"message": "Unauthorized portal access. Admin profile not found."},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                    
             if not user:
+                is_new_user = True
                 # Create a new user
                 base_username = f"{first_name.lower()}{last_name.lower()}".replace(" ", "")
                 if not base_username:
@@ -161,21 +179,35 @@ class GoogleLoginView(APIView):
                 if save_user:
                     user.save()
             
-            # Ensure Profile and Client records exist for this user (safety net in case signals failed)
-            from client.models import Profile as ClientProfile
-            ClientProfile.objects.get_or_create(user=user)
-            
-            from admin_portal.models import Client as ClientRecord
-            try:
-                user.admin_profile  # If this exists, user is an admin - skip client creation
-            except Exception:
-                ClientRecord.objects.get_or_create(
-                    user=user,
-                    defaults={
-                        'company': 'N/A',
-                        'primary_pillar': 'strategic',
-                    }
-                )
+            if portal == "consultant":
+                # Ensure consultant profile
+                from consultation.models import Consultant
+                import uuid
+                if not hasattr(user, 'consultant'):
+                    Consultant.objects.create(
+                        user=user,
+                        consultant_number=f"CON-{uuid.uuid4().hex[:6].upper()}",
+                        status="EMAIL_VERIFIED"
+                    )
+            elif portal == "client":
+                # Ensure Profile and Client records exist for this user
+                from client.models import Profile as ClientProfile
+                ClientProfile.objects.get_or_create(user=user)
+                
+                from admin_portal.models import Client as ClientRecord
+                try:
+                    user.admin_profile  # If this exists, user is an admin - skip client creation
+                except Exception:
+                    try:
+                        user.consultant # Also skip if they are already a consultant
+                    except Exception:
+                        ClientRecord.objects.get_or_create(
+                            user=user,
+                            defaults={
+                                'company': 'N/A',
+                                'primary_pillar': 'strategic',
+                            }
+                        )
                     
             # Get role info (replicating LoginSerializer's _get_user_role_info)
             role_info = self._get_user_role_info(user)

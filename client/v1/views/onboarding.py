@@ -125,4 +125,16 @@ class OnboardingQuestionnaireViewSet(viewsets.GenericViewSet):
         if ai_recommendations:
             response_data["ai_recommendations"] = ai_recommendations
 
+        # Send Onboarding Completion Email (Template 05)
+        try:
+            from admin_portal.orr_email_service import ORREmailService
+            ORREmailService.send_onboarding_completion(
+                recipient_email=request.user.email,
+                user_name=request.user.get_full_name() or request.user.username,
+                workspace_url="https://orr.solutions/dashboard"
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Failed to send onboarding completion email: {e}")
+
         return Response(response_data)
