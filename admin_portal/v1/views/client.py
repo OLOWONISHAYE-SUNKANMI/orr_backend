@@ -234,6 +234,18 @@ class ClientListView(generics.ListCreateAPIView):
                     client.assigned_admin = request.user
                     client.save()
                     logger.info(f"Updated existing client {client.id} with admin-provided data")
+                else:
+                    # Trigger Workspace Setup Email for new clients
+                    try:
+                        from admin_portal.orr_email_service import ORREmailService
+                        ORREmailService.send_workspace_setup(
+                            recipient_email=user.email,
+                            workspace_url="https://orr.solutions/dashboard",
+                            workspace_email=user.email,
+                            storage_limit="5 GB"
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to send workspace setup email: {str(e)}")
                 
                 # Success - client was created
                 logger.info(f"Client created successfully: {client.id}")

@@ -186,6 +186,106 @@ def create_task_versions(sender, instance, created, **kwargs):
             )
             version_num += 1
 
+            # Trigger Task Assigned (Template 22)
+            if field == 'assigned_to_id' and new_val:
+                try:
+                    from admin_portal.orr_email_service import ORREmailService
+                    if instance.assigned_to and instance.assigned_to.email:
+                        ORREmailService.send_task_assignment(
+                            recipient_email=instance.assigned_to.email,
+                            consultant_name=instance.assigned_to.get_full_name() or instance.assigned_to.username,
+                            task_name=instance.title,
+                            task_description=instance.description,
+                            project_name=instance.project.title if instance.project else "N/A",
+                            priority_level=instance.priority.title(),
+                            due_date=str(instance.due_date or 'TBD'),
+                            task_url=f"https://orr.solutions/consultant/tasks/{instance.task_id}"
+                        )
+                except Exception as e:
+                    logger.error(f"Failed to send task assigned email: {e}")
+            
+            # Trigger Task Updated (Template 23)
+            elif field in ['due_date', 'priority', 'description'] and instance.assigned_to and instance.assigned_to.email:
+                try:
+                    from admin_portal.orr_email_service import ORREmailService
+                    ORREmailService.send_task_updated(
+                        recipient_email=instance.assigned_to.email,
+                        task_name=instance.title,
+                        update_summary=f"Changed {field} from {old_val} to {new_val}",
+                        task_url=f"https://orr.solutions/consultant/tasks/{instance.task_id}"
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to send task updated email: {e}")
+
+            # Trigger Document Review Emails (Templates 12, 13, 14)
+            if field == 'review_outcome':
+                try:
+                    from admin_portal.orr_email_service import ORREmailService
+                    recipient_email = instance.assigned_to.email if instance.assigned_to else None
+                    if recipient_email:
+                        doc_name = f"Task Deliverable: {instance.title}"
+                        
+                        if new_val == 'approved':
+                            ORREmailService.send_document_approved(
+                                recipient_email=recipient_email,
+                                document_name=doc_name,
+                                document_url=f"https://orr.solutions/pm/tasks/{instance.task_id}",
+                                folder_path="Project Documents"
+                            )
+                        elif new_val == 'revision_required' or new_val == 'rejected':
+                            ORREmailService.send_document_rejected(
+                                recipient_email=recipient_email,
+                                document_name=doc_name,
+                                reviewer_comments=instance.review_comments or "Revisions requested.",
+                                edit_url=f"https://orr.solutions/pm/tasks/{instance.task_id}"
+                            )
+                except Exception as e:
+                    logger.error(f"Failed to send document review email: {e}")
+            
+            # Send Document Access Shared (Template 15)
+            if field == 'document_visibility':
+                try:
+                    from admin_portal.orr_email_service import ORREmailService
+                    # If made visible to client, notify client
+                    if new_val == 'client_and_consultant' or new_val == 'client_only':
+                        if instance.project and instance.project.client and instance.project.client.user.email:
+                            ORREmailService.send_document_access(
+                                recipient_email=instance.project.client.user.email,
+                                document_name=f"Task Deliverable: {instance.title}",
+                                sharer_name="ORR Solutions",
+                                permission_level="View",
+                                document_url=f"https://orr.solutions/dashboard/projects/{instance.project.project_id}",
+                                personal_note="A new document has been shared with you."
+                            )
+                    # If made visible to consultant, notify consultant
+                    if new_val == 'client_and_consultant' or new_val == 'consultant_only':
+                        if instance.assigned_to and instance.assigned_to.email:
+                            ORREmailService.send_document_access(
+                                recipient_email=instance.assigned_to.email,
+                                document_name=f"Task Deliverable: {instance.title}",
+                                sharer_name="Project Manager",
+                                permission_level="View/Edit",
+                                document_url=f"https://orr.solutions/consultant/tasks/{instance.task_id}",
+                                personal_note="A document has been made available to you."
+                            )
+                except Exception as e:
+                    logger.error(f"Failed to send document access email: {e}")
+            
+            # Send Document Submitted for Review (Template 12)
+            if field == 'status' and new_val == 'submitted_for_review':
+                try:
+                    from admin_portal.orr_email_service import ORREmailService
+                    recipient_email = instance.created_by.email if instance.created_by else None
+                    if recipient_email:
+                        ORREmailService.send_document_review(
+                            recipient_email=recipient_email,
+                            document_name=f"Task Deliverable: {instance.title}",
+                            author_name=instance.assigned_to.get_full_name() if instance.assigned_to else "Consultant",
+                            review_url=f"https://orr.solutions/pm/tasks/{instance.task_id}"
+                        )
+                except Exception as e:
+                    logger.error(f"Failed to send document review request email: {e}")
+
 
 # ─────────────────────────────────────────────
 # Auto-complete task date on completion
@@ -200,9 +300,55 @@ def auto_set_completion_date(sender, instance, **kwargs):
             old = PMTask.objects.get(pk=instance.pk)
             if old.status != 'completed' and instance.status == 'completed':
                 instance.completion_date = timezone.now()
+                
+                # Trigger Email Template 24 (Task Completion)
+                try:
+                    from admin_portal.orr_email_service import ORREmailService
+                    
+                    if instance.assigned_to:
+                        recipient_email = instance.assigned_to.email
+                    elif instance.created_by:
+                        recipient_email = instance.created_by.email
+                    else:
+                        recipient_email = None
+
+                    if recipient_email:
+                        ORREmailService.send_task_completion(
+                            recipient_email=recipient_email,
+                            task_name=instance.title,
+                            submission_id=instance.task_id,
+                            submission_date=instance.completion_date.strftime("%Y-%m-%d"),
+                            task_status_url=f"https://orr.solutions/pm/tasks/{instance.task_id}"
+                        )
+                except Exception as e:
+                    logger.error(f"Failed to send task completion email: {e}")
         except sender.DoesNotExist:
             pass
 
+
+@receiver(post_save, sender='pm.PMProjectDocument')
+def notify_on_project_document_upload(sender, instance, created, **kwargs):
+    """Send document generated notification when a new document is uploaded."""
+    if created and instance.file:
+        try:
+            from admin_portal.orr_email_service import ORREmailService
+            
+            # Decide who to notify based on document_type
+            if instance.document_type == 'linked_client_doc' or instance.document_type == 'consultant_upload':
+                recipient = instance.project.assigned_pm
+            else:
+                # E.g. PM uploaded it, maybe notify assigned consultant if they have access
+                recipient = None  # Complex logic omitted for brevity, but let's notify PM for now
+                recipient = instance.project.assigned_pm
+
+            if recipient and recipient.email:
+                ORREmailService.send_document_generated(
+                    recipient_email=recipient.email,
+                    document_name=instance.file_name or instance.file.name,
+                    document_url=f"https://orr.solutions/pm/projects/{instance.project.project_id}/documents"
+                )
+        except Exception as e:
+            logger.error(f"Failed to send document generated email: {e}")
 
 # ─────────────────────────────────────────────
 # Email Notifications
@@ -230,12 +376,24 @@ def notify_on_project_status_change(sender, instance, created, **kwargs):
             # Notify all admins
             from django.contrib.auth.models import User
             admins = User.objects.filter(is_staff=True, is_active=True)
+            admin_emails = []
             for admin in admins:
+                if admin.email:
+                    admin_emails.append(admin.email)
                 SystemNotification.objects.create(
                     notification_type='project_submitted',
                     title=f'New Project: {instance.project_id}',
                     message=f'Project "{instance.title}" submitted for review by PM.',
                     recipient=admin,
+                )
+            if admin_emails:
+                ORREmailService.send_admin_notification(
+                    recipient_emails=admin_emails,
+                    submitter_name=instance.assigned_pm.get_full_name() if instance.assigned_pm else "PM",
+                    submitter_email=instance.assigned_pm.email if instance.assigned_pm else "N/A",
+                    form_name="New PM Project",
+                    reference_id=instance.project_id,
+                    admin_link=f"https://orr.solutions/admin/projects/{instance.project_id}"
                 )
 
         # Admin requests PM clarification
@@ -246,6 +404,14 @@ def notify_on_project_status_change(sender, instance, created, **kwargs):
                 message=f'Admin has requested clarification on project "{instance.title}".',
                 recipient=instance.assigned_pm,
             )
+            if instance.assigned_pm.email:
+                ORREmailService.send_action_required(
+                    recipient_email=instance.assigned_pm.email,
+                    form_name="PM Project",
+                    reference_id=instance.project_id,
+                    missing_info_detail="Admin has requested clarification on your project submission. Please review the notes.",
+                    action_link=f"https://orr.solutions/pm/projects/{instance.project_id}"
+                )
 
         # Project approved for sourcing
         elif new_status == 'approved_for_sourcing' and instance.assigned_pm:
@@ -255,6 +421,15 @@ def notify_on_project_status_change(sender, instance, created, **kwargs):
                 message=f'Project "{instance.title}" approved for consultant sourcing.',
                 recipient=instance.assigned_pm,
             )
+            if instance.assigned_pm.email:
+                ORREmailService.send_status_update(
+                    recipient_email=instance.assigned_pm.email,
+                    form_name="PM Project",
+                    reference_id=instance.project_id,
+                    current_status="Approved for Sourcing",
+                    progress_percentage="25%",
+                    tracking_link=f"https://orr.solutions/pm/projects/{instance.project_id}"
+                )
 
         # Project completed
         elif new_status == 'completed':
@@ -266,6 +441,15 @@ def notify_on_project_status_change(sender, instance, created, **kwargs):
                     message=f'Project "{instance.title}" has been successfully completed.',
                     recipient=instance.assigned_pm,
                 )
+                if instance.assigned_pm.email:
+                    ORREmailService.send_status_update(
+                        recipient_email=instance.assigned_pm.email,
+                        form_name="PM Project",
+                        reference_id=instance.project_id,
+                        current_status="Completed",
+                        progress_percentage="100%",
+                        tracking_link=f"https://orr.solutions/pm/projects/{instance.project_id}"
+                    )
             # Notify Client
             if instance.client and instance.client.user:
                 SystemNotification.objects.create(
@@ -274,6 +458,15 @@ def notify_on_project_status_change(sender, instance, created, **kwargs):
                     message=f'Your project "{instance.title}" is now completed.',
                     recipient=instance.client.user,
                 )
+                if instance.client.user.email:
+                    ORREmailService.send_status_update(
+                        recipient_email=instance.client.user.email,
+                        form_name="Project Status",
+                        reference_id=instance.project_id,
+                        current_status="Completed",
+                        progress_percentage="100%",
+                        tracking_link=f"https://orr.solutions/dashboard/projects/{instance.project_id}"
+                    )
             # Notify Consultants linked
             for assignment in instance.assignments.filter(status__in=['active', 'completed', 'access_activated']):
                 if assignment.consultant and assignment.consultant.user:
@@ -283,6 +476,15 @@ def notify_on_project_status_change(sender, instance, created, **kwargs):
                         message=f'The project "{instance.title}" you were assigned to has been completed.',
                         recipient=assignment.consultant.user,
                     )
+                    if assignment.consultant.user.email:
+                        ORREmailService.send_status_update(
+                            recipient_email=assignment.consultant.user.email,
+                            form_name="Project Status",
+                            reference_id=instance.project_id,
+                            current_status="Completed",
+                            progress_percentage="100%",
+                            tracking_link=f"https://orr.solutions/consultant/projects/{instance.project_id}"
+                        )
             # Notify Admins
             from django.contrib.auth.models import User
             admins = User.objects.filter(is_staff=True, is_active=True)
@@ -299,8 +501,10 @@ def notify_on_project_status_change(sender, instance, created, **kwargs):
 
 
 @receiver(post_save, sender='pm.PMAssignment')
-def notify_on_assignment_invitation(sender, instance, created, **kwargs):
-    """Send email notification when assignment invitation is sent."""
+def notify_on_assignment_status_change(sender, instance, created, **kwargs):
+    """Send email and portal notification when assignment status changes."""
+    from consultation.models import ConsultantNotification
+    
     if instance.status == 'invitation_sent' and instance.invitation_sent_at:
         try:
             from admin_portal.orr_email_service import ORREmailService
@@ -317,5 +521,27 @@ def notify_on_assignment_invitation(sender, instance, created, **kwargs):
                 due_date=str(instance.assignment_deadline or 'TBD'),
                 task_url='https://orr.solutions/consultant/assignments',
             )
+            
+            # Cross-portal notification
+            ConsultantNotification.objects.create(
+                consultant=instance.consultant,
+                type='SYSTEM',
+                title='New Project Assignment Invitation',
+                message=f'You have been invited to a new project: {instance.project.title}',
+                action_link='/assignments'
+            )
         except Exception as e:
-            logger.error(f"Failed to send assignment invitation email: {e}")
+            logger.error(f"Failed to send assignment invitation notification: {e}")
+            
+    elif instance.status == 'access_activated':
+        try:
+            # Cross-portal notification for access activation
+            ConsultantNotification.objects.create(
+                consultant=instance.consultant,
+                type='SYSTEM',
+                title='Project Access Activated',
+                message=f'Your access to project "{instance.project.title}" has been activated. You can now view project details.',
+                action_link=f'/projects/{instance.project.project_id}'
+            )
+        except Exception as e:
+            logger.error(f"Failed to send assignment access activation notification: {e}")

@@ -430,6 +430,10 @@ class SystemNotification(Audit):
         ("project_clarify", "Project Clarification"),
         ("project_approved", "Project Approved"),
         ("project_completed", "Project Completed"),
+        ("task_submitted", "Task Submitted"),
+        ("task_status_changed", "Task Status Changed"),
+        ("assignment_responded", "Assignment Responded"),
+        ("message_received", "Message Received"),
     ]
 
     notification_type = models.CharField(max_length=20, choices=TYPE_CHOICES)
@@ -780,7 +784,7 @@ class ClientDocument(Audit):
                         return request.build_absolute_uri(url)
                     
                     from decouple import config
-                    api_url = config('BACKEND_URL', default='https://orr-backend-105825824472.asia-southeast2.run.app')
+                    api_url = config('BACKEND_URL', default='http://127.0.0.1:8000')
                     return f"{api_url.rstrip('/')}{url}"
                 return url
             except Exception:

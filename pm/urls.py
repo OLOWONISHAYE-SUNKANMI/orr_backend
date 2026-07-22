@@ -44,6 +44,8 @@ from .views import (
     PMDashboardView,
     PMConsultantAssignmentsView,
     PMConsultantTasksView,
+    PMConsultantProjectDetailView,
+    PMConsultantProjectDocumentsView,
     PMConsultantListView,
     PMDirectoryView,
     # Meetings
@@ -69,6 +71,8 @@ urlpatterns = [
     path('v1/dashboard/', PMDashboardView.as_view(), name='dashboard'),
     path('v1/consultant/assignments/', PMConsultantAssignmentsView.as_view(), name='consultant-assignments'),
     path('v1/consultant/tasks/', PMConsultantTasksView.as_view(), name='consultant-tasks'),
+    path('v1/consultant/projects/<int:pk>/', PMConsultantProjectDetailView.as_view(), name='consultant-project-detail'),
+    path('v1/consultant/projects/<int:pk>/documents/', PMConsultantProjectDocumentsView.as_view(), name='consultant-project-documents'),
     path('v1/directory/', PMDirectoryView.as_view(), name='pm-directory'),
     
     # ── Consultants ──

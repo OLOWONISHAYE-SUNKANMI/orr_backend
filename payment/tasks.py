@@ -95,6 +95,20 @@ def handle_stripe_event(self, event: dict):
                         reference_id=session_id
                     )
                     logger.info("Wallet credited for user %s: %s", user.id, amount)
+
+                    # Send branded wallet top-up email (21-wallet-topup)
+                    try:
+                        from admin_portal.orr_email_service import ORREmailService
+                        ORREmailService.send_wallet_topup(
+                            recipient_email=user.email,
+                            transaction_id=session_id,
+                            added_amount=str(amount),
+                            currency_symbol='$',
+                            new_balance=str(wallet.balance),
+                            wallet_url='https://orr.solutions/wallet',
+                        )
+                    except Exception as email_err:
+                        logger.error("Failed to send wallet top-up email: %s", email_err)
                     return
 
                 plan = PricingPlan.objects.filter(id=int(plan_id)).first()
@@ -123,6 +137,21 @@ def handle_stripe_event(self, event: dict):
                     },
                 )
                 logger.info("Subscription activated: %s", subscription_id)
+
+                # Send branded payment success email (16-payment-success)
+                try:
+                    from admin_portal.orr_email_service import ORREmailService
+                    ORREmailService.send_payment_success(
+                        recipient_email=user.email,
+                        invoice_id=session_id or 'N/A',
+                        amount_paid=str(plan.price) if plan else '0.00',
+                        currency_symbol='$',
+                        payment_date=timezone.now().strftime('%B %d, %Y'),
+                        payment_method='Stripe',
+                        invoice_url=data.get('hosted_invoice_url', 'https://orr.solutions/billing'),
+                    )
+                except Exception as email_err:
+                    logger.error("Failed to send payment success email: %s", email_err)
                 return
 
             # -------------------------------
@@ -287,6 +316,33 @@ def handle_stripe_event(self, event: dict):
 
                 subscription.save(update_fields=["is_active"])
                 stripe_profile.save(update_fields=["last_payment_failed"])
+
+                # Send branded payment email (16 or 17)
+                try:
+                    from admin_portal.orr_email_service import ORREmailService
+                    amount_display = str(Decimal(int(data.get('amount_due') or data.get('total') or 0)) / Decimal(100))
+                    currency = (data.get('currency') or 'USD').upper()
+                    currency_symbol = '€' if currency == 'EUR' else '$'
+
+                    if normalized_event == 'payment_succeeded':
+                        ORREmailService.send_payment_success(
+                            recipient_email=subscription.user.email,
+                            invoice_id=invoice_id,
+                            amount_paid=amount_display,
+                            currency_symbol=currency_symbol,
+                            payment_date=timezone.now().strftime('%B %d, %Y'),
+                            payment_method='Stripe',
+                            invoice_url=data.get('hosted_invoice_url', 'https://orr.solutions/billing'),
+                        )
+                    else:
+                        ORREmailService.send_payment_failed(
+                            recipient_email=subscription.user.email,
+                            invoice_id=invoice_id,
+                            failure_reason=data.get('last_payment_error', {}).get('message', 'Payment could not be processed.'),
+                            update_payment_url='https://orr.solutions/billing',
+                        )
+                except Exception as email_err:
+                    logger.error("Failed to send payment email: %s", email_err)
 
                 amount_cents = int(data.get("amount_due") or data.get("total") or 0)
                 amount = Decimal(amount_cents) / Decimal(100)

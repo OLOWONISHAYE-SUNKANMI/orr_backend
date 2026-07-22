@@ -107,6 +107,7 @@ urlpatterns = [
     
     # Vault URLs
     path("vault/folders/", vault.VaultFolderListView.as_view(), name="client-vault-folders"),
+    path("vault/folders/<int:pk>/", vault.VaultFolderDetailView.as_view(), name="client-vault-folder-detail"),
     path("vault/documents/", vault.VaultDocumentListView.as_view(), name="client-vault-documents"),
     path("vault/documents/<int:pk>/", vault.VaultDocumentDetailView.as_view(), name="client-vault-document-detail"),
     path("vault/activity/", vault.VaultActivityListView.as_view(), name="client-vault-activity"),

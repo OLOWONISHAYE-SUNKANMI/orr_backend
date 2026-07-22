@@ -84,6 +84,19 @@ class DeactivateUserView(APIView):
                 ip_address=request.META.get("REMOTE_ADDR"),
             )
 
+            if admin_profile.user.email:
+                try:
+                    from admin_portal.orr_email_service import ORREmailService
+                    ORREmailService.send_access_revoked(
+                        recipient_email=admin_profile.user.email,
+                        workspace_name="ORR Solutions Admin Portal",
+                        revocation_reason="Your account has been deactivated by an administrator.",
+                        revocation_date=admin_profile.updated_at.strftime("%Y-%m-%d %H:%M") if hasattr(admin_profile, 'updated_at') else "Immediate"
+                    )
+                except Exception as e:
+                    import logging
+                    logging.getLogger(__name__).error(f"Failed to send access revoked notification: {e}")
+
             return Response({"message": "User deactivated successfully"})
 
         except AdminProfile.DoesNotExist:
@@ -121,14 +134,33 @@ class EditUserView(APIView):
 
             # Update profile fields
             profile_data = request.data.get("profile", {})
+            role_changed = False
+            new_role_name = None
             if "role_name" in profile_data:
                 role = AdminRole.objects.get(name=profile_data["role_name"])
+                if admin_profile.role != role:
+                    role_changed = True
+                    new_role_name = role.name
                 admin_profile.role = role
             if "department" in profile_data:
                 admin_profile.department = profile_data["department"]
             if "phone" in profile_data:
                 admin_profile.phone = profile_data["phone"]
             admin_profile.save()
+
+            if role_changed and user.email:
+                try:
+                    from admin_portal.orr_email_service import ORREmailService
+                    ORREmailService.send_role_change_notification(
+                        recipient_email=user.email,
+                        workspace_name="ORR Solutions Portal",
+                        new_role_name=new_role_name,
+                        role_description=role.description if hasattr(role, 'description') else "Role updated by admin.",
+                        dashboard_url="https://orr.solutions/admin/dashboard"
+                    )
+                except Exception as e:
+                    import logging
+                    logging.getLogger(__name__).error(f"Failed to send role change notification: {e}")
 
             # Create audit log
             AuditLog.objects.create(

@@ -140,6 +140,29 @@ class ApprovalQueueListView(APIView):
             {"request_id": req_id, "action_type": action_type}
         )
 
+        # Trigger 36-admin-approval-request
+        try:
+            from django.contrib.auth.models import User
+            from admin_portal.orr_email_service import ORREmailService
+            import datetime
+            # Find super admins or users with can_approve_sensitive_actions
+            approvers = User.objects.filter(is_staff=True, admin_profile__role__can_approve_sensitive_actions=True)
+            superadmins = User.objects.filter(is_superuser=True)
+            approver_emails = list(set(list(approvers.values_list('email', flat=True)) + list(superadmins.values_list('email', flat=True))))
+            
+            if approver_emails:
+                ORREmailService.send_admin_approval_request(
+                    recipient_emails=approver_emails,
+                    requester_name=user.get_full_name() or user.username,
+                    action_type=action_type,
+                    request_id=req_id,
+                    request_date=datetime.datetime.now().strftime("%Y-%m-%d"),
+                    review_url=f"https://orr.solutions/admin/approvals/{req_id}"
+                )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Failed to send approval request email: {e}")
+
         return Response(
             {
                 "message": "Sensitive action intercepted. Submitted for Super Admin review.",
@@ -205,6 +228,24 @@ class ApprovalQueueDecideView(APIView):
                 "reason": reason,
             }
         )
+
+        # Trigger 37-admin-approval-status
+        try:
+            from django.contrib.auth.models import User
+            from admin_portal.orr_email_service import ORREmailService
+            requester = User.objects.filter(id=item.requested_by).first()
+            if requester and requester.email:
+                ORREmailService.send_admin_approval_status(
+                    recipient_email=requester.email,
+                    request_id=item.id,
+                    action_type=item.action_type,
+                    status=decision,
+                    approver_name=user.get_full_name() or user.username,
+                    approval_notes=reason or "Reviewed by admin."
+                )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Failed to send approval status email: {e}")
 
         return Response({
             "message": f"Request {req_id} has been {decision.lower()}.",

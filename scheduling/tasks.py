@@ -63,22 +63,28 @@ def charge_for_meeting(self, meeting_id):
             subscription.used_hours = (subscription.used_hours or 0) + hours_used
             subscription.save()
 
+            # Send branded payment success email (16-payment-success)
+            try:
+                from admin_portal.orr_email_service import ORREmailService
+                ORREmailService.send_payment_success(
+                    recipient_email=client_user.email,
+                    invoice_id=paid_invoice.id,
+                    amount_paid=str(amount_paid),
+                    currency_symbol='$',
+                    payment_date=meeting.start_time.strftime('%B %d, %Y') if meeting.start_time else '',
+                    payment_method='Stripe',
+                    invoice_url=paid_invoice.hosted_invoice_url or 'https://orr.solutions/billing',
+                )
+            except Exception as email_err:
+                logger.error("Failed to send payment success email: %s", email_err)
+
             notify_user(
             client_user,
             "Payment Successful",
             f"We successfully charged ${amount_paid} for your recent meeting.",
-            ["inapp", "email"], 
+            ["inapp"],
             {
                 "type": "payment_success",
-                # You must create this HTML template in your templates folder!
-                "template": "payment/payment_success.html", 
-                "context": {
-                    "amount": amount_paid,
-                    "meeting_id": meeting.ticket_id, # or meeting.id
-                    "date": meeting.start_time, 
-                    "invoice_url": paid_invoice.hosted_invoice_url, # Useful link for the user!
-                    "client_name": client_user.first_name
-                }
             }
         )
             
@@ -89,19 +95,25 @@ def charge_for_meeting(self, meeting_id):
         # The card was declined. Don't retry blindly, notify the user/admin.
         # Log this specific error or trigger a 'payment_failed' email task.
 
+        # Send branded payment failed email (17-payment-failed)
+        try:
+            from admin_portal.orr_email_service import ORREmailService
+            ORREmailService.send_payment_failed(
+                recipient_email=meeting.client.user.email,
+                invoice_id=f'meeting-{meeting_id}',
+                failure_reason=e.user_message,
+                update_payment_url='https://orr.solutions/billing',
+            )
+        except Exception as email_err:
+            logger.error("Failed to send payment failed email: %s", email_err)
+
         notify_user(
             meeting.client.user,
             "Payment Failed: Action Required",
             f"Your payment for the recent meeting failed. Please update your card.",
-            ["inapp", "email"],
+            ["inapp"],
             {
                 "type": "payment_failed",
-                "template": "payment/payment_failed.html",
-                "context": {
-                    "reason": e.user_message,
-                    "meeting_id": meeting.ticket_id,
-                    "client_name": meeting.client.user.first_name,
-                }
             }
         )
         print(f"Payment Declined for Meeting {meeting_id}: {e}")
@@ -111,3 +123,42 @@ def charge_for_meeting(self, meeting_id):
         # For network errors or other crashes, we retry.
         # Idempotency keys above protect us from double-charging during retries.
         self.retry(exc=e)
+
+
+@shared_task
+def send_meeting_reminders():
+    """Periodic task to send meeting reminders 1 hour before start"""
+    from django.utils import timezone
+    from datetime import timedelta
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    now = timezone.now()
+    # Find meetings starting between 55 and 65 minutes from now
+    target_time_start = now + timedelta(minutes=55)
+    target_time_end = now + timedelta(minutes=65)
+
+    meetings = Meeting.objects.filter(
+        status='confirmed',
+        requested_datetime__gte=target_time_start,
+        requested_datetime__lte=target_time_end
+    )
+
+    for meeting in meetings:
+        # Prevent duplicate reminders (we could use a flag or cache, but checking this narrow window handles most cases)
+        try:
+            from admin_portal.orr_email_service import ORREmailService
+            
+            meeting_time = meeting.requested_datetime.strftime("%Y-%m-%d %H:%M UTC")
+            
+            # Send to client
+            if meeting.client and meeting.client.user.email:
+                ORREmailService.send_meeting_reminder(
+                    recipient_email=meeting.client.user.email,
+                    meeting_topic=meeting.get_meeting_type_display(),
+                    meeting_time=meeting_time,
+                    meeting_link=meeting.meeting_link or "Link will be provided",
+                    calendar_url=f"https://orr.solutions/meetings/{meeting.id}"
+                )
+        except Exception as e:
+            logger.error(f"Failed to send meeting reminder for meeting {meeting.id}: {e}")

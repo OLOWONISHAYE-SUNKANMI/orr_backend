@@ -417,6 +417,19 @@ class SubscriptionActionsView(APIView):
             subscription.plan_name = new_plan
             subscription.save()
             
+            # Send subscription update email
+            try:
+                from admin_portal.orr_email_service import ORREmailService
+                ORREmailService.send_subscription_update(
+                    recipient_email=subscription.user.email,
+                    old_plan_name=old_plan,
+                    new_plan_name=new_plan,
+                    billing_portal_url="https://orr.solutions/billing"
+                )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Failed to send subscription update email: {e}")
+            
             return {
                 "status": "success",
                 "message": f"Plan changed from {old_plan} to {new_plan}",

@@ -104,6 +104,26 @@ class LoginView(APIView):
        
         refresh = RefreshToken.for_user(user)
 
+        # Send login alert email in background
+        from admin_portal.orr_email_service import ORREmailService
+        import datetime
+        client_ip = request.META.get('HTTP_X_FORWARDED_FOR')
+        if client_ip:
+            client_ip = client_ip.split(',')[0]
+        else:
+            client_ip = request.META.get('REMOTE_ADDR', 'Unknown IP')
+        
+        try:
+            ORREmailService.send_login_alert(
+                recipient_email=user.email,
+                login_time=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC"),
+                ip_address=client_ip,
+                location="Unknown Location",
+                secure_account_link="https://orr.solutions/security"
+            )
+        except Exception as e:
+            logging.error(f"Failed to send login alert: {e}")
+
         return Response(
             {
                 "status": status.HTTP_200_OK,

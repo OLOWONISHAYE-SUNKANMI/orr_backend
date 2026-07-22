@@ -21,7 +21,8 @@ from common.response import api_response
 
 def sync_pm_task_to_consultant(pm_task):
     """Helper to sync PMTask status to ConsultantTask when PM updates the task manually."""
-    from consultation.models import ConsultantTask
+    from consultation.models import ConsultantTask, ConsultantJob
+    from pm.models import PMAssignment
     STATUS_MAP = {
         'draft': 'NOT_STARTED',
         'not_started': 'NOT_STARTED',
@@ -53,6 +54,39 @@ def sync_pm_task_to_consultant(pm_task):
         c_task = ConsultantTask.objects.filter(title=pm_task.title).first()
         if c_task:
             c_task.pm_task_id = pm_task.task_id
+            
+    if not c_task:
+        assigned_user = pm_task.assigned_to
+        if assigned_user and hasattr(assigned_user, 'consultant'):
+            assignment = PMAssignment.objects.filter(
+                project=pm_task.project,
+                consultant=assigned_user.consultant
+            ).first()
+            
+            if assignment:
+                desc = assignment.assignment_scope or pm_task.project.client_objective or 'Auto-generated job for PM project.'
+            else:
+                desc = pm_task.project.client_objective or 'Auto-generated job for PM project.'
+
+            job, _ = ConsultantJob.objects.get_or_create(
+                consultant=assigned_user.consultant,
+                title=f"Assignment: {pm_task.project.title}",
+                defaults={
+                    'industry': pm_task.project.service_category or 'Consulting',
+                    'client_sector': 'TBD',
+                    'description': desc,
+                    'status': 'ACTIVE'
+                }
+            )
+            c_task = ConsultantTask(
+                job=job,
+                pm_task_id=pm_task.task_id,
+                title=pm_task.title,
+                description=pm_task.description or '',
+                due_date=pm_task.due_date,
+                priority=mapped_priority,
+                status=mapped_status
+            )
     
     if c_task:
         c_task.status = mapped_status
@@ -60,7 +94,7 @@ def sync_pm_task_to_consultant(pm_task):
         c_task.description = pm_task.description or ''
         c_task.due_date = pm_task.due_date
         c_task.priority = mapped_priority
-        c_task.save(update_fields=['status', 'title', 'description', 'due_date', 'priority'])
+        c_task.save()
 
 from .models import (
     PMProject, PMProjectVersion, PMProjectDocument,
@@ -133,12 +167,21 @@ class PMOnboardingSubmitView(APIView):
     def post(self, request):
         try:
             admin_profile = getattr(request.user, 'admin_profile', None)
-            if admin_profile:
+            if admin_profile is None:
+                # Fallback if getattr somehow returned None
+                from admin_portal.models import AdminProfile
+                admin_profile, _ = AdminProfile.objects.get_or_create(user=request.user)
+
+            admin_profile.is_onboarding_complete = True
+            admin_profile.save()
+            return Response(api_response(message="Onboarding completed."))
+        except Exception as e:
+            if type(e).__name__ == 'RelatedObjectDoesNotExist':
+                from admin_portal.models import AdminProfile
+                admin_profile = AdminProfile.objects.create(user=request.user)
                 admin_profile.is_onboarding_complete = True
                 admin_profile.save()
                 return Response(api_response(message="Onboarding completed."))
-            return Response(api_response(success=False, message="Admin profile not found"), status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
             return Response(api_response(success=False, message=str(e)), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -627,11 +670,29 @@ class PMTaskDetailView(APIView):
                 api_response(success=False, message="Task not found."),
                 status=status.HTTP_404_NOT_FOUND,
             )
+            
+        old_status = task.status
+            
         serializer = PMTaskCreateSerializer(
             task, data=request.data, partial=True, context={'request': request}
         )
         if serializer.is_valid():
             task = serializer.save()
+            sync_pm_task_to_consultant(task)
+            
+            # If consultant changed the status
+            if old_status != task.status and hasattr(request.user, 'consultant'):
+                assigned_pm = task.project.assigned_pm
+                if assigned_pm:
+                    from admin_portal.models import SystemNotification
+                    consultant_name = request.user.get_full_name() or request.user.username
+                    SystemNotification.objects.create(
+                        notification_type='task_status_changed',
+                        title=f'Task Status Updated: {task.title}',
+                        message=f'Consultant {consultant_name} updated task "{task.title}" status from {old_status} to {task.status}.',
+                        recipient=assigned_pm,
+                    )
+            
             detail = PMTaskDetailSerializer(task).data
             return Response(api_response(data=detail, message="Task updated."))
         return Response(
@@ -674,8 +735,27 @@ class PMTaskSubmitReviewView(APIView):
                 uploaded_by=request.user,
                 visibility='pm_admin_only'
             )
+            if hasattr(request.user, 'consultant'):
+                from consultation.models import ConsultantDocument
+                ConsultantDocument.objects.create(
+                    consultant=request.user.consultant,
+                    title=f"Deliverable: {deliverable_file.name}",
+                    category='TECHNICAL',
+                    doc_type='doc',
+                    status='LOCKED',
+                    file=deliverable_file,
+                )
 
         sync_pm_task_to_consultant(task)
+        
+        if task.project.assigned_pm:
+            from admin_portal.models import SystemNotification
+            SystemNotification.objects.create(
+                notification_type='task_submitted',
+                title=f'Deliverable Submitted: {task.title}',
+                message=f'Consultant has submitted a deliverable for task "{task.title}". Please review it.',
+                recipient=task.project.assigned_pm,
+            )
 
         return Response(api_response(
             data={'status': task.status},
@@ -1338,6 +1418,9 @@ class PMAssignmentAcceptView(APIView):
             )
 
         action = request.data.get('action')  # 'accept', 'decline', 'clarify'
+        
+        assigned_pm = assignment.project.assigned_pm
+        consultant_name = assignment.consultant.user.get_full_name() or assignment.consultant.user.username
 
         if action == 'accept':
             assignment.status = 'accepted'
@@ -1350,6 +1433,15 @@ class PMAssignmentAcceptView(APIView):
                 project=assignment.project,
                 consultant=assignment.consultant,
             ).update(response_status='assignment_accepted')
+            
+            if assigned_pm:
+                from admin_portal.models import SystemNotification
+                SystemNotification.objects.create(
+                    notification_type='assignment_responded',
+                    title=f'Assignment Accepted: {assignment.project.title}',
+                    message=f'Consultant {consultant_name} has accepted the assignment for project "{assignment.project.title}".',
+                    recipient=assigned_pm,
+                )
 
             return Response(api_response(
                 data={'status': assignment.status},
@@ -1366,6 +1458,15 @@ class PMAssignmentAcceptView(APIView):
                 project=assignment.project,
                 consultant=assignment.consultant,
             ).update(response_status='assignment_declined')
+            
+            if assigned_pm:
+                from admin_portal.models import SystemNotification
+                SystemNotification.objects.create(
+                    notification_type='assignment_responded',
+                    title=f'Assignment Declined: {assignment.project.title}',
+                    message=f'Consultant {consultant_name} has declined the assignment for project "{assignment.project.title}". Reason: {assignment.consultant_clarification}',
+                    recipient=assigned_pm,
+                )
 
             return Response(api_response(
                 data={'status': assignment.status},
@@ -1376,6 +1477,15 @@ class PMAssignmentAcceptView(APIView):
             assignment.response_status = 'needs_clarification'
             assignment.consultant_clarification = request.data.get('message', '')
             assignment.save()
+            
+            if assigned_pm:
+                from admin_portal.models import SystemNotification
+                SystemNotification.objects.create(
+                    notification_type='assignment_responded',
+                    title=f'Clarification Requested: {assignment.project.title}',
+                    message=f'Consultant {consultant_name} has requested clarification on the assignment for project "{assignment.project.title}". Message: {assignment.consultant_clarification}',
+                    recipient=assigned_pm,
+                )
 
             return Response(api_response(
                 data={'response_status': assignment.response_status},
@@ -1517,6 +1627,65 @@ class PMConsultantAssignmentsView(APIView):
         )
         serializer = PMAssignmentSerializer(assignments, many=True)
         return Response(api_response(data=serializer.data))
+
+class PMConsultantProjectDocumentsView(APIView):
+    """GET /pm/v1/consultant/projects/<pk>/documents/ - List documents accessible to the consultant."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        if not hasattr(request.user, 'consultant'):
+            return Response(api_response(success=False, message="User is not a consultant."), status=status.HTTP_403_FORBIDDEN)
+            
+        try:
+            project = PMProject.objects.get(pk=pk)
+        except PMProject.DoesNotExist:
+            return Response(api_response(success=False, message="Project not found."), status=status.HTTP_404_NOT_FOUND)
+            
+        has_assignment = PMAssignment.objects.filter(
+            project=project,
+            consultant=request.user.consultant,
+            status='access_activated'
+        ).exists()
+        
+        if not has_assignment:
+            return Response(api_response(success=False, message="Not assigned to this project or access not activated."), status=status.HTTP_403_FORBIDDEN)
+            
+        # For simplicity, returning PMProjectDocuments
+        # In a real system, you might filter by a document_access setting or visibility field
+        # Here we assume any document on the project can be read by assigned consultants
+        documents = project.documents.all()
+        
+        from .serializers import PMProjectDocumentSerializer
+        serializer = PMProjectDocumentSerializer(documents, many=True)
+        return Response(api_response(data=serializer.data))
+
+class PMConsultantProjectDetailView(APIView):
+    """GET /pm/v1/consultant/projects/<pk>/ - Get consultant-facing project details."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        if not hasattr(request.user, 'consultant'):
+            return Response(api_response(success=False, message="User is not a consultant."), status=status.HTTP_403_FORBIDDEN)
+            
+        try:
+            project = PMProject.objects.get(pk=pk)
+        except PMProject.DoesNotExist:
+            return Response(api_response(success=False, message="Project not found."), status=status.HTTP_404_NOT_FOUND)
+            
+        # Verify consultant has an active assignment for this project
+        has_assignment = PMAssignment.objects.filter(
+            project=project,
+            consultant=request.user.consultant,
+            status='access_activated'
+        ).exists()
+        
+        if not has_assignment:
+            return Response(api_response(success=False, message="Not assigned to this project or access not activated."), status=status.HTTP_403_FORBIDDEN)
+            
+        from .serializers import PMConsultantProjectDetailSerializer
+        serializer = PMConsultantProjectDetailSerializer(project, context={'consultant': request.user.consultant})
+        return Response(api_response(data=serializer.data))
+
 
 class PMConsultantTasksView(APIView):
     """GET /pm/v1/consultant/tasks/ - List tasks assigned to the logged-in consultant."""
@@ -1750,10 +1919,21 @@ class PMMessageViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         cnum = self.request.data.get('consultant')
         save_kwargs = {'pm': self.request.user}
+        consultant = None
         if cnum:
             try:
                 consultant = Consultant.objects.get(consultant_number=cnum)
                 save_kwargs['consultant'] = consultant
             except Consultant.DoesNotExist:
                 pass
-        serializer.save(**save_kwargs)
+        msg = serializer.save(**save_kwargs)
+        
+        if consultant:
+            from consultation.models import ConsultantNotification
+            ConsultantNotification.objects.create(
+                consultant=consultant,
+                type='MESSAGE',
+                title='New Message from PM',
+                message=f"You have a new message from {self.request.user.get_full_name() or 'your Project Manager'}.",
+                action_link='/messages'
+            )
