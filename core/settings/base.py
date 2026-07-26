@@ -249,19 +249,19 @@ CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 
 
 
-FRONTEND_VERIFY_EMAIL_URL = config("FRONTEND_VERIFY_EMAIL_URL", default="http://localhost:3000/verify")
-FRONTEND_RESET_PASSWORD_URL = config("FRONTEND_RESET_PASSWORD_URL", default="http://localhost:3000/reset")
-FRONTEND_ADMIN_RESET_URL = config("FRONTEND_ADMIN_RESET_URL", default="http://localhost:3001/reset-password")
-FRONTEND_CONSULTANT_RESET_URL = config("FRONTEND_CONSULTANT_RESET_URL", default="http://localhost:3002/reset-password")
-FRONTEND_PM_RESET_URL = config("FRONTEND_PM_RESET_URL", default="http://localhost:3003/reset-password")
+FRONTEND_VERIFY_EMAIL_URL = config("FRONTEND_VERIFY_EMAIL_URL", default="https://orr.solutions/auth/verify-email")
+FRONTEND_RESET_PASSWORD_URL = config("FRONTEND_RESET_PASSWORD_URL", default="https://orr.solutions/auth/reset-password")
+FRONTEND_ADMIN_RESET_URL = config("FRONTEND_ADMIN_RESET_URL", default="https://admin.orr.solutions/reset-password")
+FRONTEND_CONSULTANT_RESET_URL = config("FRONTEND_CONSULTANT_RESET_URL", default="https://consultant.orr.solutions/reset-password")
+FRONTEND_PM_RESET_URL = config("FRONTEND_PM_RESET_URL", default="https://projectmanager.orr.solutions/reset-password")
 
-
-STRIPE_SECRET_KEY = config("STRIPE_SECRET_KEY", default="sk_test_dummy")
+# Stripe settings
+STRIPE_SECRET_KEY = config("STRIPE_SECRET_KEY", default="")
 STRIPE_PUBLISHABLE_KEY = config("STRIPE_PUBLISHABLE_KEY", default="pk_test_dummy")
 STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="whsec_dummy")
 
-STRIPE_SUCCESS_URL = config("STRIPE_SUCCESS_URL", default="http://localhost:3000/success")
-STRIPE_CANCEL_URL = config("STRIPE_CANCEL_URL", default="http://localhost:3000/cancel")
+STRIPE_SUCCESS_URL = config("STRIPE_SUCCESS_URL", default="https://orr.solutions/payment/success")
+STRIPE_CANCEL_URL = config("STRIPE_CANCEL_URL", default="https://orr.solutions/payment/cancel")
 
 
 CELERY_TIMEZONE = "Africa/Lagos"

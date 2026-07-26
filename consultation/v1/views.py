@@ -53,7 +53,7 @@ class ConsultantRegistrationView(APIView):
         try:
             ORREmailService.send_welcome_email(
                 recipient_email=email,
-                dashboard_url=f"http://localhost:3000/verify",
+                dashboard_url=f"https://consultant.orr.solutions/verify",
                 consultant_number=consultant_id
             )
         except Exception as e:
@@ -231,7 +231,7 @@ class ConsultantOnboardingView(APIView):
             ORREmailService.send_onboarding_completion(
                 recipient_email=consultant.user.email,
                 user_name=data.get('fullName', consultant.user.get_full_name()),
-                workspace_url='https://orr.solutions/consultant/dashboard',
+                workspace_url='https://consultant.orr.solutions/dashboard',
             )
         except Exception:
             pass  # Don't crash the API if email fails
@@ -549,7 +549,7 @@ class ConsultantInvoiceViewSet(viewsets.ModelViewSet):
                     invoice_id=invoice.invoice_number,
                     amount=f"{invoice.currency} {invoice.amount}",
                     submission_date=datetime.datetime.now().strftime("%Y-%m-%d"),
-                    invoice_url=f"https://orr.solutions/consultant/invoices/{invoice.id}"
+                    invoice_url=f"https://consultant.orr.solutions/invoices/{invoice.id}"
                 )
             
             # Notify admins
@@ -561,7 +561,7 @@ class ConsultantInvoiceViewSet(viewsets.ModelViewSet):
                     consultant_name=invoice.consultant.user.get_full_name() if invoice.consultant else "Consultant",
                     invoice_id=invoice.invoice_number,
                     amount=f"{invoice.currency} {invoice.amount}",
-                    admin_invoice_url=f"https://orr.solutions/admin/consultant-invoices/{invoice.id}"
+                    admin_invoice_url=f"https://admin.orr.solutions/consultant-invoices/{invoice.id}"
                 )
         except Exception as e:
             import logging
@@ -586,7 +586,7 @@ class ConsultantInvoiceViewSet(viewsets.ModelViewSet):
                         amount=f"{invoice.currency} {invoice.amount}",
                         payment_date=datetime.datetime.now().strftime("%Y-%m-%d"),
                         payment_reference="Check Portal",
-                        invoice_url=f"https://orr.solutions/consultant/invoices/{invoice.id}"
+                        invoice_url=f"https://consultant.orr.solutions/invoices/{invoice.id}"
                     )
                 else:
                     # Otherwise trigger 26 for general status update
@@ -596,7 +596,7 @@ class ConsultantInvoiceViewSet(viewsets.ModelViewSet):
                         invoice_id=invoice.invoice_number,
                         new_status=new_status,
                         status_reason="Status has been updated by admin.",
-                        invoice_url=f"https://orr.solutions/consultant/invoices/{invoice.id}"
+                        invoice_url=f"https://consultant.orr.solutions/invoices/{invoice.id}"
                     )
             except Exception as e:
                 import logging
