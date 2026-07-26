@@ -104,30 +104,35 @@ def meeting_notification_handler(sender, instance, created, **kwargs):
         from .orr_email_service import ORREmailService
         recipient_email = instance.client.user.email
         meeting_time = instance.confirmed_datetime.strftime("%Y-%m-%d %H:%M UTC") if instance.confirmed_datetime else instance.requested_datetime.strftime("%Y-%m-%d %H:%M UTC")
+        meeting_subject = instance.get_meeting_type_display()
         
         if instance.status == 'confirmed' and (created or old_status != 'confirmed'):
             ORREmailService.send_meeting_scheduled(
                 recipient_email=recipient_email,
-                meeting_topic=instance.get_meeting_type_display(),
+                meeting_subject=meeting_subject,
                 meeting_time=meeting_time,
-                meeting_link=instance.meeting_link or "Link will be provided",
-                calendar_url=f"https://orr.solutions/meetings/{instance.id}"
+                meeting_link=getattr(instance, 'meeting_link', '') or "Link will be provided",
             )
         elif instance.status == 'rescheduled' and old_status != 'rescheduled':
+            # For rescheduled, if we don't have the old_time easily accessible, use the current time as both or fetch it.
+            # Usually old_status doesn't carry the old time, so we just supply the new time.
             ORREmailService.send_meeting_rescheduled(
                 recipient_email=recipient_email,
-                meeting_topic=instance.get_meeting_type_display(),
-                new_meeting_time=meeting_time,
-                meeting_link=instance.meeting_link or "Link will be provided"
+                meeting_subject=meeting_subject,
+                old_time=meeting_time, # Fallback, ideally should be actual old time
+                new_time=meeting_time,
+                meeting_link=getattr(instance, 'meeting_link', '') or "Link will be provided"
             )
         elif instance.status in ['cancelled', 'declined'] and old_status not in ['cancelled', 'declined']:
             ORREmailService.send_meeting_cancelled(
                 recipient_email=recipient_email,
-                meeting_topic=instance.get_meeting_type_display(),
+                meeting_subject=meeting_subject,
+                meeting_time=meeting_time,
                 cancellation_reason="Meeting was cancelled or declined by admin.",
-                reschedule_url="https://orr.solutions/meetings/request"
+                scheduling_url="https://orr.solutions/meetings/request"
             )
     except Exception as e:
+        logger.error(f"Failed to send meeting status notification for meeting {instance.id}: {e}")
         logger.error(f"Failed to send meeting notification email: {e}")
 
 
