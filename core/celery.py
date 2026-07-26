@@ -11,3 +11,9 @@ app.config_from_object("django.conf:settings", namespace="CELERY")
 
 app.autodiscover_tasks()
 app.conf.broker_connection_retry_on_startup = True
+app.conf.beat_schedule = {
+    'send_upcoming_invoice_reminders_daily': {
+        'task': 'payment.tasks.send_upcoming_invoice_reminders',
+        'schedule': 86400.0, # Run once a day (in seconds)
+    },
+}

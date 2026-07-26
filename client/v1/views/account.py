@@ -85,6 +85,7 @@ class PasswordResetRequestView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
 
         email = serializer.validated_data["email"]
+        portal = serializer.validated_data.get("portal", "client")
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
@@ -93,7 +94,7 @@ class PasswordResetRequestView(generics.GenericAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
         try:
-            send_password_reset_notification(user)
+            send_password_reset_notification(user, portal=portal)
         except Exception as e:
             return Response(
                 {"error": f"Failed to send reset email: {str(e)}"},

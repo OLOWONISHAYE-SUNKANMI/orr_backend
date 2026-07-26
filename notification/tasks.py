@@ -123,7 +123,16 @@ class EmailService:
     def send_email(self, subject, recipient_email, template_name, context):
         context["from_email"] = self.default_sender
 
-        send_email_task.delay(subject, recipient_email, template_name, context)
-        logger.info(f"[EmailService] Queued → {recipient_email}")
+        try:
+            send_email_task.delay(subject, recipient_email, template_name, context)
+            logger.info(f"[EmailService] Queued → {recipient_email}")
+        except Exception as e:
+            logger.warning(f"[EmailService] Celery/Redis failed, falling back to synchronous email for {recipient_email}. Error: {e}")
+            try:
+                # Call task synchronously as fallback
+                send_email_task(subject, recipient_email, template_name, context)
+                logger.info(f"[EmailService] Sent synchronously → {recipient_email}")
+            except Exception as inner_e:
+                logger.error(f"[EmailService] Synchronous fallback failed for {recipient_email}. Error: {inner_e}")
 
         return True

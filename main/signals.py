@@ -56,4 +56,12 @@ def notify_admin_on_new_contact_message(sender, instance, created, **kwargs):
 
     for admin_email in admin_emails:
         logger.info(f"Queueing Celery task for {admin_email}")
-        send_contact_notification_email.delay(subject, admin_email, context)
+        try:
+            send_contact_notification_email.delay(subject, admin_email, context)
+        except Exception as e:
+            logger.warning(f"Celery/Redis failed for contact notification to {admin_email}. Falling back to synchronous. Error: {e}")
+            try:
+                # Call task synchronously as fallback
+                send_contact_notification_email(subject, admin_email, context)
+            except Exception as inner_e:
+                logger.error(f"Synchronous fallback failed for {admin_email}. Error: {inner_e}")
