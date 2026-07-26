@@ -51,10 +51,12 @@ class SignUpSerializer(serializers.ModelSerializer):
 class LoginSerializer(serializers.Serializer):
     email = serializers.CharField(required=True)
     password = serializers.CharField(write_only=True, required=True)
+    portal = serializers.CharField(required=False, allow_null=True, default="client")
 
     def validate(self, attrs):
         email = attrs.get("email")
         password = attrs.get("password")
+        portal = attrs.get("portal", "client")
 
         if not email or not password:
             raise serializers.ValidationError(
@@ -68,19 +70,48 @@ class LoginSerializer(serializers.Serializer):
         if not user:
             raise serializers.ValidationError("Invalid login credentials.")
 
-        # Check if this user registered via Google (has unusable password)
-        if not user.has_usable_password():
-            raise serializers.ValidationError(
-                "This account was registered using Google Sign-In. Please use the 'Continue with Google' button to log in."
-            )
-
         if not user.check_password(password):
             raise serializers.ValidationError("Invalid login credentials.")
+            
         if not user.is_active:
             send_email_verification_notification(user)
             raise serializers.ValidationError(
                 "Account not verified. A verification email has been sent."
             )
+            
+        # Profile Syncing Logic based on portal (mirrored from GoogleLoginView)
+        if portal == "consultant":
+            # Ensure consultant profile
+            from consultation.models import Consultant
+            import uuid
+            if not hasattr(user, 'consultant'):
+                Consultant.objects.create(
+                    user=user,
+                    consultant_number=f"CON-{uuid.uuid4().hex[:6].upper()}",
+                    status="EMAIL_VERIFIED"
+                )
+        elif portal == "client":
+            # Ensure Profile and Client records exist for this user
+            from client.models import Profile as ClientProfile
+            ClientProfile.objects.get_or_create(user=user)
+            
+            from admin_portal.models import Client as ClientRecord
+            try:
+                user.admin_profile
+            except Exception:
+                try:
+                    user.consultant
+                except Exception:
+                    ClientRecord.objects.get_or_create(
+                        user=user,
+                        defaults={
+                            'company': 'N/A',
+                            'primary_pillar': 'strategic',
+                        }
+                    )
+        elif portal in ["admin", "pm"]:
+            if not hasattr(user, 'admin_profile'):
+                raise serializers.ValidationError("Unauthorized portal access. Admin profile not found.")
         # Get user role info
         role_info = self._get_user_role_info(user)
         attrs["user"] = user
