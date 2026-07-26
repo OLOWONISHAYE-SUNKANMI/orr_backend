@@ -452,3 +452,50 @@ def deactivate_expired_subscriptions(self):
 
     logger.info("Celery deactivated %s subscriptions", count)
     return count
+
+
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_kwargs={"max_retries": 3, "countdown": 30},
+)
+def send_upcoming_invoice_reminders(self):
+    """
+    Sends invoice payment reminders 3 days before the calculated due date.
+    Calculated due date = billing_date + 30 days.
+    So we send a reminder when (billing_date + 30 days) - today == 3 days
+    or simply when today == billing_date + 27 days.
+    """
+    now_date = timezone.now().date()
+    # If today is billing_date + 27 days, then due_date is in 3 days.
+    target_billing_date = now_date - timezone.timedelta(days=27)
+
+    invoices = Invoice.objects.filter(
+        status__in=["open", "unpaid"],
+        billing_date=target_billing_date
+    ).select_related("user")
+
+    count = 0
+    for invoice in invoices:
+        try:
+            from admin_portal.orr_email_service import ORREmailService
+            
+            amount_display = str(invoice.amount)
+            currency_symbol = '€' if invoice.currency == 'EUR' else '$'
+            due_date_str = (invoice.billing_date + timezone.timedelta(days=30)).strftime('%B %d, %Y')
+            
+            ORREmailService.send_invoice_reminder(
+                recipient_email=invoice.user.email,
+                invoice_id=invoice.stripe_invoice_id,
+                amount_due=amount_display,
+                currency_symbol=currency_symbol,
+                due_date=due_date_str,
+                days_left="3",
+                pay_invoice_url=invoice.hosted_invoice_url or "https://orr.solutions/billing"
+            )
+            count += 1
+        except Exception as err:
+            logger.error("Failed to send invoice reminder for %s: %s", invoice.stripe_invoice_id, err)
+
+    logger.info("Celery sent %s invoice reminders", count)
+    return count

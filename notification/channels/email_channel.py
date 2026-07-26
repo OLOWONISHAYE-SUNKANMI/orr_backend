@@ -40,6 +40,21 @@ class EmailChannel(BaseChannel):
                 f"Email queued successfully to {user.email} using template '{template_name}'"
             )
         except Exception as e:
-            logger.exception(
-                f"Email sending failed for user={user.id}, email={user.email}. Error: {e}"
+            logger.warning(
+                f"Celery/Redis failed for {user.email}, falling back to synchronous email sending. Error: {e}"
             )
+            try:
+                # Call task synchronously as fallback
+                send_email_task(
+                    subject=title,
+                    recipient_email=user.email,
+                    template_name=template_name,
+                    context=context,
+                )
+                logger.info(
+                    f"Email sent successfully (fallback) to {user.email} using template '{template_name}'"
+                )
+            except Exception as inner_e:
+                logger.exception(
+                    f"Email sending failed for user={user.id}, email={user.email}. Error: {inner_e}"
+                )

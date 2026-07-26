@@ -17,6 +17,7 @@ class VerifyEmailSerializer(serializers.Serializer):
 
 class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
+    portal = serializers.ChoiceField(choices=["client", "admin", "consultant", "pm"], default="client", required=False)
 
     def validate_email(self, value):
         if not User.objects.filter(email=value):

@@ -251,6 +251,9 @@ CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 
 FRONTEND_VERIFY_EMAIL_URL = config("FRONTEND_VERIFY_EMAIL_URL", default="http://localhost:3000/verify")
 FRONTEND_RESET_PASSWORD_URL = config("FRONTEND_RESET_PASSWORD_URL", default="http://localhost:3000/reset")
+FRONTEND_ADMIN_RESET_URL = config("FRONTEND_ADMIN_RESET_URL", default="http://localhost:3001/reset-password")
+FRONTEND_CONSULTANT_RESET_URL = config("FRONTEND_CONSULTANT_RESET_URL", default="http://localhost:3002/reset-password")
+FRONTEND_PM_RESET_URL = config("FRONTEND_PM_RESET_URL", default="http://localhost:3003/reset-password")
 
 
 STRIPE_SECRET_KEY = config("STRIPE_SECRET_KEY", default="sk_test_dummy")
