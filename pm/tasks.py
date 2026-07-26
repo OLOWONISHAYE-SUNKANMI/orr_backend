@@ -34,7 +34,7 @@ def send_task_deadline_reminders():
                     recipient_email=task.assigned_to.email,
                     task_name=task.title,
                     due_date=task.due_date.strftime("%Y-%m-%d") if task.due_date else "Tomorrow",
-                    task_url=f"https://orr.solutions/pm/tasks/{task.task_id}"
+                    task_url=f"https://projectmanager.orr.solutions/tasks/{task.task_id}"
                 )
         except Exception as e:
             logger.error(f"Failed to send task deadline reminder for task {task.task_id}: {e}")

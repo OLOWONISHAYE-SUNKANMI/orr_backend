@@ -199,7 +199,7 @@ def create_task_versions(sender, instance, created, **kwargs):
                             project_name=instance.project.title if instance.project else "N/A",
                             priority_level=instance.priority.title(),
                             due_date=str(instance.due_date or 'TBD'),
-                            task_url=f"https://orr.solutions/consultant/tasks/{instance.task_id}"
+                            task_url=f"https://consultant.orr.solutions/tasks/{instance.task_id}"
                         )
                 except Exception as e:
                     logger.error(f"Failed to send task assigned email: {e}")
@@ -212,7 +212,7 @@ def create_task_versions(sender, instance, created, **kwargs):
                         recipient_email=instance.assigned_to.email,
                         task_name=instance.title,
                         update_summary=f"Changed {field} from {old_val} to {new_val}",
-                        task_url=f"https://orr.solutions/consultant/tasks/{instance.task_id}"
+                        task_url=f"https://consultant.orr.solutions/tasks/{instance.task_id}"
                     )
                 except Exception as e:
                     logger.error(f"Failed to send task updated email: {e}")
@@ -229,7 +229,7 @@ def create_task_versions(sender, instance, created, **kwargs):
                             ORREmailService.send_document_approved(
                                 recipient_email=recipient_email,
                                 document_name=doc_name,
-                                document_url=f"https://orr.solutions/pm/tasks/{instance.task_id}",
+                                document_url=f"https://projectmanager.orr.solutions/tasks/{instance.task_id}",
                                 folder_path="Project Documents"
                             )
                         elif new_val == 'revision_required' or new_val == 'rejected':
@@ -237,7 +237,7 @@ def create_task_versions(sender, instance, created, **kwargs):
                                 recipient_email=recipient_email,
                                 document_name=doc_name,
                                 reviewer_comments=instance.review_comments or "Revisions requested.",
-                                edit_url=f"https://orr.solutions/pm/tasks/{instance.task_id}"
+                                edit_url=f"https://projectmanager.orr.solutions/tasks/{instance.task_id}"
                             )
                 except Exception as e:
                     logger.error(f"Failed to send document review email: {e}")
@@ -265,7 +265,7 @@ def create_task_versions(sender, instance, created, **kwargs):
                                 document_name=f"Task Deliverable: {instance.title}",
                                 sharer_name="Project Manager",
                                 permission_level="View/Edit",
-                                document_url=f"https://orr.solutions/consultant/tasks/{instance.task_id}",
+                                document_url=f"https://consultant.orr.solutions/tasks/{instance.task_id}",
                                 personal_note="A document has been made available to you."
                             )
                 except Exception as e:
@@ -281,7 +281,7 @@ def create_task_versions(sender, instance, created, **kwargs):
                             recipient_email=recipient_email,
                             document_name=f"Task Deliverable: {instance.title}",
                             author_name=instance.assigned_to.get_full_name() if instance.assigned_to else "Consultant",
-                            review_url=f"https://orr.solutions/pm/tasks/{instance.task_id}"
+                            review_url=f"https://projectmanager.orr.solutions/tasks/{instance.task_id}"
                         )
                 except Exception as e:
                     logger.error(f"Failed to send document review request email: {e}")
@@ -318,7 +318,7 @@ def auto_set_completion_date(sender, instance, **kwargs):
                             task_name=instance.title,
                             submission_id=instance.task_id,
                             submission_date=instance.completion_date.strftime("%Y-%m-%d"),
-                            task_status_url=f"https://orr.solutions/pm/tasks/{instance.task_id}"
+                            task_status_url=f"https://projectmanager.orr.solutions/tasks/{instance.task_id}"
                         )
                 except Exception as e:
                     logger.error(f"Failed to send task completion email: {e}")
@@ -345,7 +345,7 @@ def notify_on_project_document_upload(sender, instance, created, **kwargs):
                 ORREmailService.send_document_generated(
                     recipient_email=recipient.email,
                     document_name=instance.file_name or instance.file.name,
-                    document_url=f"https://orr.solutions/pm/projects/{instance.project.project_id}/documents"
+                    document_url=f"https://projectmanager.orr.solutions/projects/{instance.project.project_id}/documents"
                 )
         except Exception as e:
             logger.error(f"Failed to send document generated email: {e}")
@@ -393,7 +393,7 @@ def notify_on_project_status_change(sender, instance, created, **kwargs):
                     submitter_email=instance.assigned_pm.email if instance.assigned_pm else "N/A",
                     form_name="New PM Project",
                     reference_id=instance.project_id,
-                    admin_link=f"https://orr.solutions/admin/projects/{instance.project_id}"
+                    admin_link=f"https://admin.orr.solutions/projects/{instance.project_id}"
                 )
 
         # Admin requests PM clarification
@@ -410,7 +410,7 @@ def notify_on_project_status_change(sender, instance, created, **kwargs):
                     form_name="PM Project",
                     reference_id=instance.project_id,
                     missing_info_detail="Admin has requested clarification on your project submission. Please review the notes.",
-                    action_link=f"https://orr.solutions/pm/projects/{instance.project_id}"
+                    action_link=f"https://projectmanager.orr.solutions/projects/{instance.project_id}"
                 )
 
         # Project approved for sourcing
@@ -428,7 +428,7 @@ def notify_on_project_status_change(sender, instance, created, **kwargs):
                     reference_id=instance.project_id,
                     current_status="Approved for Sourcing",
                     progress_percentage="25%",
-                    tracking_link=f"https://orr.solutions/pm/projects/{instance.project_id}"
+                    tracking_link=f"https://projectmanager.orr.solutions/projects/{instance.project_id}"
                 )
 
         # Project completed
@@ -448,7 +448,7 @@ def notify_on_project_status_change(sender, instance, created, **kwargs):
                         reference_id=instance.project_id,
                         current_status="Completed",
                         progress_percentage="100%",
-                        tracking_link=f"https://orr.solutions/pm/projects/{instance.project_id}"
+                        tracking_link=f"https://projectmanager.orr.solutions/projects/{instance.project_id}"
                     )
             # Notify Client
             if instance.client and instance.client.user:
@@ -483,7 +483,7 @@ def notify_on_project_status_change(sender, instance, created, **kwargs):
                             reference_id=instance.project_id,
                             current_status="Completed",
                             progress_percentage="100%",
-                            tracking_link=f"https://orr.solutions/consultant/projects/{instance.project_id}"
+                            tracking_link=f"https://consultant.orr.solutions/projects/{instance.project_id}"
                         )
             # Notify Admins
             from django.contrib.auth.models import User
@@ -519,7 +519,7 @@ def notify_on_assignment_status_change(sender, instance, created, **kwargs):
                 project_name=instance.project.title,
                 priority_level=instance.priority.title(),
                 due_date=str(instance.assignment_deadline or 'TBD'),
-                task_url='https://orr.solutions/consultant/assignments',
+                task_url='https://consultant.orr.solutions/assignments',
             )
             
             # Cross-portal notification

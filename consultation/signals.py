@@ -63,7 +63,7 @@ def process_consultant_approval(sender, instance, created, **kwargs):
             from admin_portal.orr_email_service import ORREmailService
             ORREmailService.send_workspace_setup(
                 recipient_email=personal_email,
-                workspace_url='https://orr.solutions/consultant/dashboard',
+                workspace_url='https://consultant.orr.solutions/dashboard',
                 workspace_email=orr_email_alias,
                 storage_limit='5 GB'
             )
@@ -97,7 +97,7 @@ def process_invoice_notifications(sender, instance, created, **kwargs):
                 recipient_email=recipient_email,
                 invoice_id=instance.invoice_number,
                 submission_date=instance.submitted_at.strftime("%Y-%m-%d"),
-                tracking_url=f"https://orr.solutions/consultant/invoices/{instance.invoice_number}"
+                tracking_url=f"https://consultant.orr.solutions/invoices/{instance.invoice_number}"
             )
             
         # 2. Status change (e.g. APPROVED or REJECTED/UNDER_REVIEW)
@@ -109,7 +109,7 @@ def process_invoice_notifications(sender, instance, created, **kwargs):
                     invoice_id=instance.invoice_number,
                     amount_paid=f"{instance.amount}",
                     payout_date=instance.updated_at.strftime("%Y-%m-%d") if hasattr(instance, 'updated_at') else "today",
-                    dashboard_url=f"https://orr.solutions/consultant/invoices/{instance.invoice_number}"
+                    dashboard_url=f"https://consultant.orr.solutions/invoices/{instance.invoice_number}"
                 )
             else:
                 ORREmailService.send_consultant_invoice_status(
@@ -117,7 +117,7 @@ def process_invoice_notifications(sender, instance, created, **kwargs):
                     invoice_id=instance.invoice_number,
                     new_status=instance.status,
                     admin_comments=instance.reviewer_notes or "Status updated by admin.",
-                    status_url=f"https://orr.solutions/consultant/invoices/{instance.invoice_number}"
+                    status_url=f"https://consultant.orr.solutions/invoices/{instance.invoice_number}"
                 )
                 
     except Exception as e:
