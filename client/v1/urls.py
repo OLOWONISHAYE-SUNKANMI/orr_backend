@@ -11,8 +11,6 @@ from .views.account import (
     AccountSettingsView,
     ChangePasswordView,
     DashboardOverviewView,
-    PasswordResetConfirmView,
-    PasswordResetRequestView,
     VerifyEmailView,
 )
 from .views.dashboard import DashboardView, PerformanceGraphView
@@ -59,16 +57,6 @@ urlpatterns = [
     path("client/register/", ClientSignupView.as_view(), name="client-register"),
     path("admin-register/", AdminSignupView.as_view(), name="admin-register"),
     path("login/", LoginView.as_view(), name="reqister"),
-    path(
-        "forget-password/",
-        PasswordResetRequestView.as_view(),
-        name="forget-password",
-    ),
-    path(
-        "verify-reset-password/<uidb64>/<token>/",
-        PasswordResetConfirmView.as_view(),
-        name="verify-reset-password",
-    ),
     path("change-password/", ChangePasswordView.as_view(), name="change-password"),
     path("profile/create/", CreateOrUpdateProfileView.as_view(), name="profile-create"),
     path("account/settings/", AccountSettingsView.as_view(), name="account-settings"),
