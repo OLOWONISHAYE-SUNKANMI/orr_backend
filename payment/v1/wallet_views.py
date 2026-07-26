@@ -78,6 +78,21 @@ class TopUpView(APIView):
                         description="Wallet Top-up via Saved Card",
                         reference_id=intent.id
                     )
+                    
+                    # Send branded wallet top-up email (21-wallet-topup)
+                    try:
+                        from admin_portal.orr_email_service import ORREmailService
+                        ORREmailService.send_wallet_topup(
+                            recipient_email=request.user.email,
+                            transaction_id=intent.id,
+                            added_amount=str(amount),
+                            currency_symbol='$',
+                            new_balance=str(stripe_customer.user.wallet.balance),
+                            wallet_url='https://orr.solutions/wallet',
+                        )
+                    except Exception as email_err:
+                        logger.error(f"Failed to send wallet top-up email: {email_err}")
+                        
                     return Response({
                         "status": "success",
                         "message": "Top-up completed successfully"

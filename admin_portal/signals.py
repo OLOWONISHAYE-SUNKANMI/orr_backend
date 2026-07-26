@@ -72,6 +72,7 @@ def meeting_notification_handler(sender, instance, created, **kwargs):
             admin_profile__role__can_manage_meetings=True, admin_profile__is_active=True
         )
 
+        admin_emails = []
         for admin_user in admin_users:
             SystemNotification.objects.create(
                 notification_type="meeting_requested",
@@ -81,6 +82,22 @@ def meeting_notification_handler(sender, instance, created, **kwargs):
                 related_meeting=instance,
                 related_client=instance.client,
             )
+            if admin_user.email:
+                admin_emails.append(admin_user.email)
+                
+        if admin_emails:
+            try:
+                from .orr_email_service import ORREmailService
+                ORREmailService.send_admin_notification(
+                    recipient_emails=admin_emails,
+                    submitter_name=instance.client.user.get_full_name(),
+                    submitter_email=instance.client.user.email,
+                    form_name="Meeting Request",
+                    reference_id=f"MTG-{instance.id}",
+                    admin_link="https://projectmanager.orr.solutions/meetings"
+                )
+            except Exception as e:
+                logger.error(f"Failed to send admin notification for meeting: {e}")
             
     # Send Email Notifications for Meeting Status
     try:

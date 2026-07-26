@@ -312,7 +312,12 @@ def stripe_webhook(request):
     try:
         handle_stripe_event.delay(event)  
     except Exception:
-        logger.exception("Failed to enqueue Stripe event to Celery")
+        logger.exception("Failed to enqueue Stripe event to Celery. Running synchronously as fallback.")
+        try:
+            handle_stripe_event(event)
+        except Exception as sync_err:
+            logger.error(f"Synchronous fallback processing also failed: {sync_err}")
+            
     return HttpResponse(status=200)
 
 
