@@ -4,6 +4,7 @@ from django.core.validators import MinLengthValidator
 from django.db import models
 from admin_portal.models import ClientDocument, Client
 from common.models import Audit
+from common.state_machine import StateMachineMixin
 from django.utils import timezone
 
 
@@ -285,6 +286,9 @@ class Transaction(Audit):
             if self.transaction_type in ['top_up', 'payment', 'refund']:
                 self.wallet.balance += self.amount
             elif self.transaction_type in ['withdrawal', 'deduction']:
+                if self.wallet.balance < self.amount:
+                    from rest_framework.exceptions import ValidationError
+                    raise ValidationError("Insufficient wallet balance for this transaction.")
                 self.wallet.balance -= self.amount
             self.wallet.save()
         super().save(*args, **kwargs)
@@ -294,7 +298,7 @@ class Transaction(Audit):
 # CLIENT REQUEST / PROBLEM BRIEF
 # ═══════════════════════════════════════════════════════════
 
-class ClientRequest(Audit):
+class ClientRequest(StateMachineMixin, Audit):
     """
     Client Problem / Request Brief Form.
     Main client-side intake form used to capture the specific issue, question,

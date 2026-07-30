@@ -186,14 +186,6 @@ class ApprovalQueueDecideView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        try:
-            item = ApprovalQueue.objects.get(id=req_id, status='PENDING')
-        except ApprovalQueue.DoesNotExist:
-            return Response(
-                {"error": "Approval request not found or already decided."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
         decision = request.data.get('decision', '').upper()
         reason = request.data.get('reason', '')
 
@@ -209,13 +201,22 @@ class ApprovalQueueDecideView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user = request.user
-        item.status = decision
-        item.decided_by = str(user.id)
-        item.decided_by_name = user.get_full_name() or user.username
-        item.decided_at = timezone.now()
-        item.rejection_reason = reason if decision == 'REJECTED' else ''
-        item.save()
+        from django.db import transaction
+        try:
+            with transaction.atomic():
+                item = ApprovalQueue.objects.select_for_update().get(id=req_id, status='PENDING')
+                user = request.user
+                item.status = decision
+                item.decided_by = str(user.id)
+                item.decided_by_name = user.get_full_name() or user.username
+                item.decided_at = timezone.now()
+                item.rejection_reason = reason if decision == 'REJECTED' else ''
+                item.save()
+        except ApprovalQueue.DoesNotExist:
+            return Response(
+                {"error": "Approval request not found or already decided."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
         # Log to security audit trail
         event_name = 'ACTION_APPROVED' if decision == 'APPROVED' else 'ACTION_REJECTED'

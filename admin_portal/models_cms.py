@@ -473,7 +473,7 @@ class ResourcesBlogsPage(Audit):
     
     # Hero Section
     hero_title = RichTextField(default={"content": "Resources / Blogs", "format": "html"})
-    hero_subtitle = RichTextField(default={"content": "Lorem ipsm ticles, practical guides, and future-focused insights on digital transformation, AI, software development, and cloud innovation, written to help your business scale with confidence.", "format": "html"})
+    hero_subtitle = RichTextField(default={"content": "", "format": "html"})
     
     # Blog Cards (4 cards)
     blog_card_1_title = RichTextField(default={"content": "Mobile Apps & PWAs for Maltese Insurers: Boost Engagement | Born Digital", "format": "html"})
@@ -496,16 +496,16 @@ class ResourcesBlogsPage(Audit):
     admin_tips_title = RichTextField(default={"content": "Admin Tips", "format": "html"})
     
     tip_1_number = models.CharField(max_length=500, default="01")
-    tip_1_title = RichTextField(default={"content": "Lorem ipsum", "format": "html"})
-    tip_1_description = RichTextField(default={"content": "Lorem ipsum jgdu mplexity. From regulatory and sustainability frameworks to biotechnology and compliance consulting, our experts guide clients through evolving legal, scientific, and operational standards. Our approach combines deep technical insight with strategic foresight — ensuring every initiative is compliant, sustainable, and built for growth.", "format": "html"})
+    tip_1_title = RichTextField(default={"content": "", "format": "html"})
+    tip_1_description = RichTextField(default={"content": "", "format": "html"})
     
     tip_2_number = models.CharField(max_length=500, default="02")
-    tip_2_title = RichTextField(default={"content": "Lorem ipsum", "format": "html"})
-    tip_2_description = RichTextField(default={"content": "Lorem ipsum jgdu mplexity. From regulatory and sustainability frameworks to biotechnology and compliance consulting, our experts guide clients through evolving legal, scientific, and operational standards. Our experts help clients navigate complex requirements with confidence.", "format": "html"})
+    tip_2_title = RichTextField(default={"content": "", "format": "html"})
+    tip_2_description = RichTextField(default={"content": "", "format": "html"})
     
     tip_3_number = models.CharField(max_length=500, default="03")
-    tip_3_title = RichTextField(default={"content": "Lorem ipsum", "format": "html"})
-    tip_3_description = RichTextField(default={"content": "Lorem ipsum jgdu mplexity. From regulatory and sustainability frameworks to biotechnology and compliance consulting, our experts guide clients through evolving legal, scientific, and operational standards.", "format": "html"})
+    tip_3_title = RichTextField(default={"content": "", "format": "html"})
+    tip_3_description = RichTextField(default={"content": "", "format": "html"})
     
     # SEO
     meta_title = RichTextField(default={"content": "", "format": "html"}, blank=True)
@@ -526,17 +526,17 @@ class LegacyPolicyPage(Audit):
     
     # Hero Section
     hero_title = RichTextField(default={"content": "Legacy & Policy", "format": "html"})
-    hero_description = RichTextField(default={"content": "Lorem ipsm jgdu mplexity. From regulatory and sustainability frameworks to biotechnology and compliance consulting, our experts guide clients through evolving legal, scientific, and operational standards. Our approach combines deep technical insight with strategic foresight — ensuring every initiative is compliant, sustainable, and built for growth.", "format": "html"})
+    hero_description = RichTextField(default={"content": "", "format": "html"})
     
     # Policy Items
     policy_item_1_number = models.CharField(max_length=500, default="01")
-    policy_item_1_description = RichTextField(default={"content": "Lorem ipsm jgdu mplexity. From regulatory and sustainability frameworks to biotechnology and compliance consulting, our experts guide clients through evolving legal, scientific, and operational standards. Our approach combines deep technical insight with strategic foresight — ensuring every initiative is compliant, sustainable, and built for growth.", "format": "html"})
+    policy_item_1_description = RichTextField(default={"content": "", "format": "html"})
     
     policy_item_2_number = models.CharField(max_length=500, default="02")
-    policy_item_2_description = RichTextField(default={"content": "Lorem ipsm jgdu mplexity. From regulatory and sustainability frameworks to biotechnology and compliance consulting, our experts guide clients through evolving legal, scientific, and operational standards. Our approach combines deep technical insight with strategic foresight — ensuring every initiative is compliant, sustainable, and built for growth.", "format": "html"})
+    policy_item_2_description = RichTextField(default={"content": "", "format": "html"})
     
     policy_item_3_number = models.CharField(max_length=500, default="03")
-    policy_item_3_description = RichTextField(default={"content": "Lorem ipsm jgdu mplexity. From regulatory and sustainability frameworks to biotechnology and compliance consulting, our experts guide clients through evolving legal, scientific, and operational standards. Our approach combines deep technical insight with strategic foresight — ensuring every initiative is compliant, sustainable, and built for growth.", "format": "html"})
+    policy_item_3_description = RichTextField(default={"content": "", "format": "html"})
     
     # SEO
     meta_title = RichTextField(default={"content": "", "format": "html"}, blank=True)

@@ -45,9 +45,9 @@ urlpatterns = [
     path('<str:consultant_id>/documents/<int:pk>/', ConsultantDocumentDetailView.as_view(), name='consultant-document-detail'),
     path('<str:consultant_id>/messages/directory/', ConsultantMessageDirectoryView.as_view(), name='consultant-message-directory'),
     
+    path('', include(invoice_router.urls)),
     path('<str:consultant_id>/', include(job_router.urls)),
     path('<str:consultant_id>/', include(task_router.urls)),
-    path('<str:consultant_id>/', include(invoice_router.urls)),
     path('<str:consultant_id>/', include(msg_router.urls)),
     path('<str:consultant_id>/', include(mtg_router.urls)),
     path('<str:consultant_id>/', include(notif_router.urls)),

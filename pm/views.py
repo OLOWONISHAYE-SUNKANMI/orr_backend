@@ -714,11 +714,7 @@ class PMTaskSubmitReviewView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if task.status not in ('in_progress', 'revision_required'):
-            return Response(
-                api_response(success=False, message="Task cannot be submitted for review."),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+
 
         notes = request.data.get('notes', '')
         deliverable_file = request.data.get('deliverable_file')
@@ -1712,7 +1708,7 @@ class PMConsultantTasksView(APIView):
 
 class PMDashboardView(APIView):
     """GET /pm/v1/dashboard/ – PM Dashboard summary."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsPMOrAdmin]
 
     def get(self, request):
         user = request.user
@@ -1932,8 +1928,7 @@ class PMMessageViewSet(viewsets.ModelViewSet):
             from consultation.models import ConsultantNotification
             ConsultantNotification.objects.create(
                 consultant=consultant,
-                type='MESSAGE',
+                notif_type='CHAT',
                 title='New Message from PM',
-                message=f"You have a new message from {self.request.user.get_full_name() or 'your Project Manager'}.",
-                action_link='/messages'
+                text=f"You have a new message from {self.request.user.get_full_name() or 'your Project Manager'}.",
             )

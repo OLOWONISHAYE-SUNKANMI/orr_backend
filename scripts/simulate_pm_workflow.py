@@ -23,6 +23,12 @@ user, created = User.objects.get_or_create(
         "is_active": True
     }
 )
+user.is_staff = True
+user.save()
+from admin_portal.models import AdminProfile
+profile, _ = AdminProfile.objects.get_or_create(user=user)
+profile.department = 'PM'
+profile.save()
 print(f"[OK] Created test Project Manager: {email}")
 
 # 2. Authenticate Client
@@ -35,7 +41,7 @@ project_payload = {
     "status": "draft",
     "urgency": "normal",
     "client": 106,
-    "service_category": "strategy",
+    "service_category": "strategy_advisory_compliance",
     "client_name": "TestCorp Inc.",
     "assigned_pm": user.id
 }
@@ -69,12 +75,12 @@ else:
 
 # 5. Update Task Status (Simulate Drag & Drop)
 update_payload = {
-    "status": "completed"
+    "status": "in_progress"
 }
 response = client.patch(f'/pm/v1/tasks/{task_id}/', update_payload, format='json')
 
 if response.status_code == 200:
-    print(f"[OK] Successfully updated task status to 'completed'")
+    print(f"[OK] Successfully updated task status to 'in_progress'")
 else:
     print(f"[FAIL] Failed to update task: {response.data}")
     exit(1)

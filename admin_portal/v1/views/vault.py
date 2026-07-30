@@ -213,7 +213,7 @@ class VaultFolderListView(APIView):
 
     def post(self, request):
         user = request.user
-        data = request.data.copy()
+        data = request.data.dict() if hasattr(request.data, 'dict') else request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
 
         if _is_admin(user):
             # Admin can specify client explicitly
@@ -360,7 +360,7 @@ class VaultDocumentListView(APIView):
 
     def post(self, request):
         user = request.user
-        data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+        data = request.data.dict() if hasattr(request.data, 'dict') else request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
 
         if _is_admin(user):
             client_id = data.get('client') or data.get('client_id')

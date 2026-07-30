@@ -103,3 +103,30 @@ class HasActivePaidSubscription(BasePermission):
             )
 
         return True
+
+class IsHardenedSuperAdmin(BasePermission):
+    """
+    Strict permission class for highly sensitive actions.
+    Requires the user to be an active super_admin and to have a verified OTP device.
+    """
+    message = "Super Admin privileges with active 2FA required for this action."
+
+    def has_permission(self, request, view):
+        user = request.user
+        
+        if not user or not user.is_authenticated:
+            return False
+            
+        # Must be a super admin role
+        if not (hasattr(user, "admin_profile") and user.admin_profile.is_active):
+            return False
+            
+        if not (user.admin_profile.role and user.admin_profile.role.name == "super_admin"):
+            return False
+            
+        # Must have an OTP device verified (2FA enforcement check)
+        from django_otp import user_has_device
+        if not user_has_device(user):
+            raise PermissionDenied("2FA must be enabled for this account to perform super admin actions.")
+            
+        return True

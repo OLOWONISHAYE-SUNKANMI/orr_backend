@@ -56,6 +56,7 @@ def _is_configurator(user):
 def _serialize_config(cfg):
     return {
         "mfa_enforced": cfg.mfa_enforced,
+        "mfa_enforced_roles": cfg.mfa_enforced_roles,
         "ip_bounds_restricted": cfg.ip_bounds_restricted,
         "strict_interceptors": cfg.strict_interceptors,
         "maintenance_mode": cfg.maintenance_mode,
@@ -93,7 +94,7 @@ class SystemConfigView(APIView):
         cfg, _ = SystemConfig.objects.get_or_create(defaults={})
 
         allowed_fields = [
-            'mfa_enforced', 'ip_bounds_restricted', 'strict_interceptors',
+            'mfa_enforced', 'mfa_enforced_roles', 'ip_bounds_restricted', 'strict_interceptors',
             'maintenance_mode', 'verbose_logging', 'session_timeout',
         ]
         updated_fields = []

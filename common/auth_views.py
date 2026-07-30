@@ -47,7 +47,15 @@ class LoginView(APIView):
         role_info = serializer.validated_data["role_info"]
 
        
+        from admin_portal.models import SystemConfig
+        config = SystemConfig.objects.first()
+        mfa_required = config.mfa_enforced if config else False
+        
         refresh = RefreshToken.for_user(user)
+        if mfa_required and user.is_staff:
+            refresh['mfa_verified'] = False
+        else:
+            refresh['mfa_verified'] = True
 
         return Response(
             {
@@ -64,6 +72,7 @@ class LoginView(APIView):
                         "last_name": user.last_name,
                         **role_info,
                     },
+                    "mfa_required": mfa_required and user.is_staff
                 },
             },
             status=status.HTTP_200_OK,
@@ -212,7 +221,15 @@ class GoogleLoginView(APIView):
             # Get role info (replicating LoginSerializer's _get_user_role_info)
             role_info = self._get_user_role_info(user)
             
+            from admin_portal.models import SystemConfig
+            config = SystemConfig.objects.first()
+            mfa_required = config.mfa_enforced if config else False
+            
             refresh = RefreshToken.for_user(user)
+            if mfa_required and user.is_staff:
+                refresh['mfa_verified'] = False
+            else:
+                refresh['mfa_verified'] = True
 
             return Response(
                 {
@@ -231,6 +248,7 @@ class GoogleLoginView(APIView):
                             "last_name": user.last_name,
                             **role_info,
                         },
+                        "mfa_required": mfa_required and user.is_staff
                     },
                 },
                 status=status.HTTP_200_OK,

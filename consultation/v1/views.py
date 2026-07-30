@@ -49,11 +49,14 @@ class ConsultantRegistrationView(APIView):
 
         from admin_portal.orr_email_service import ORREmailService
         
+        from django.conf import settings
+        dashboard_link = "http://localhost:3000/verify" if settings.DEBUG else "https://consultant.orr.solutions/verify"
+
         # Send welcome email using branded template (04-welcome-email.html)
         try:
             ORREmailService.send_welcome_email(
                 recipient_email=email,
-                dashboard_url=f"https://consultant.orr.solutions/verify",
+                dashboard_url=dashboard_link,
                 consultant_number=consultant_id
             )
         except Exception as e:
@@ -534,7 +537,10 @@ class ConsultantInvoiceViewSet(viewsets.ModelViewSet):
     filterset_fields = ['consultant__consultant_number', 'status']
 
     def perform_create(self, serializer):
-        invoice = serializer.save()
+        if hasattr(self.request.user, 'consultant'):
+            invoice = serializer.save(consultant=self.request.user.consultant)
+        else:
+            invoice = serializer.save()
         
         # Trigger Templates 25 and 27 on invoice submission
         try:

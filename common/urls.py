@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from .views import PublicHomepageView, CurrentUserRoleView, RedisTestView
 from .auth_views import LoginView, GoogleLoginView
 from client.v1.views.account import PasswordResetRequestView, PasswordResetConfirmView
@@ -19,4 +19,5 @@ urlpatterns = [
     ),
     path("cms/homepage/", PublicHomepageView.as_view(), name="public-homepage"),
     path("system/redis-test/", RedisTestView.as_view(), name="redis-test"),
+    path("auth/mfa/", include("common.mfa.urls")),
 ]

@@ -525,10 +525,9 @@ def notify_on_assignment_status_change(sender, instance, created, **kwargs):
             # Cross-portal notification
             ConsultantNotification.objects.create(
                 consultant=instance.consultant,
-                type='SYSTEM',
+                notif_type='SYSTEM',
                 title='New Project Assignment Invitation',
-                message=f'You have been invited to a new project: {instance.project.title}',
-                action_link='/assignments'
+                text=f'You have been invited to a new project: {instance.project.title}',
             )
         except Exception as e:
             logger.error(f"Failed to send assignment invitation notification: {e}")
@@ -538,10 +537,9 @@ def notify_on_assignment_status_change(sender, instance, created, **kwargs):
             # Cross-portal notification for access activation
             ConsultantNotification.objects.create(
                 consultant=instance.consultant,
-                type='SYSTEM',
+                notif_type='SYSTEM',
                 title='Project Access Activated',
-                message=f'Your access to project "{instance.project.title}" has been activated. You can now view project details.',
-                action_link=f'/projects/{instance.project.project_id}'
+                text=f'Your access to project "{instance.project.title}" has been activated. You can now view project details.',
             )
         except Exception as e:
             logger.error(f"Failed to send assignment access activation notification: {e}")
