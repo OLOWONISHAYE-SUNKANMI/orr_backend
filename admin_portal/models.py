@@ -69,6 +69,8 @@ class AdminProfile(Audit):
     is_active = models.BooleanField(default=True)
     last_login_ip = models.GenericIPAddressField(null=True, blank=True)
     is_onboarding_complete = models.BooleanField(default=False)
+    bio = models.TextField(blank=True)
+    company_name = models.CharField(max_length=200, blank=True)
 
     def __str__(self):
         return f"{self.user.get_full_name()} - {self.role}"

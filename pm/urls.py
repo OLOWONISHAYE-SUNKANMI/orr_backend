@@ -54,6 +54,7 @@ from .views import (
     PMMeetingDetailView,
     PMMessageDirectoryView,
     PMMessageViewSet,
+    PMProfileView,
 )
 
 pm_msg_router = DefaultRouter()
@@ -69,6 +70,7 @@ urlpatterns = [
 
     # ── Dashboard ──
     path('v1/dashboard/', PMDashboardView.as_view(), name='dashboard'),
+    path('v1/profile/', PMProfileView.as_view(), name='pm-profile'),
     path('v1/consultant/assignments/', PMConsultantAssignmentsView.as_view(), name='consultant-assignments'),
     path('v1/consultant/tasks/', PMConsultantTasksView.as_view(), name='consultant-tasks'),
     path('v1/consultant/projects/<int:pk>/', PMConsultantProjectDetailView.as_view(), name='consultant-project-detail'),
