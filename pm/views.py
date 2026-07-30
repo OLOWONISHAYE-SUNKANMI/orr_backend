@@ -1942,9 +1942,9 @@ class PMProfileView(APIView):
     def get(self, request, *args, **kwargs):
         admin_profile = getattr(request.user, 'admin_profile', None)
         
-        active_projects = Project.objects.filter(status='active').count()
-        tasks_completed = ProjectTask.objects.filter(status='completed').count()
-        open_requests = Opportunity.objects.filter(status='open').count()
+        active_projects = PMProject.objects.filter(assigned_pm=request.user, status='active').count()
+        tasks_completed = PMTask.objects.filter(project__assigned_pm=request.user, status='completed').count()
+        open_requests = PMOpportunity.objects.filter(project__assigned_pm=request.user, response_status='invited').count()
 
         return Response({
             'success': True,
