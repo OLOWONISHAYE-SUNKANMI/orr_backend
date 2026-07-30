@@ -78,38 +78,44 @@ class MFAVerifySetupView(APIView):
             return Response({"error": "Invalid code"}, status=status.HTTP_400_BAD_REQUEST)
 
 
+from rest_framework.permissions import AllowAny
+from django.contrib.auth import get_user_model
+from django.core.cache import cache
+
 class MFALoginVerifyView(APIView):
     """
-    Verifies TOTP code during login.
+    Verifies Email OTP code during login.
     Expected to be called after password login but before granting full access,
     or immediately after login if using a 2-step flow.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     @extend_schema(summary="Verify MFA during Login", responses={200: dict, 400: dict})
     def post(self, request):
-        user = request.user
+        email = request.data.get('email')
         code = request.data.get('code')
         
-        if not code:
-            return Response({"error": "Code is required"}, status=status.HTTP_400_BAD_REQUEST)
+        if not email or not code:
+            return Response({"error": "Email and code are required"}, status=status.HTTP_400_BAD_REQUEST)
             
-        device = TOTPDevice.objects.filter(user=user, confirmed=True).first()
+        User = get_user_model()
+        user = User.objects.filter(email__iexact=email).first()
+        if not user:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+        cache_key = f"mfa_otp_{user.email}"
+        cached_code = cache.get(cache_key)
         
-        config = SystemConfig.objects.first()
-        mfa_enforced = config.mfa_enforced if config else False
-
-        if not device:
-            if mfa_enforced and user.is_staff: # typically enforced for admins
-                return Response({"error": "MFA is required but not set up. Please contact an administrator."}, status=status.HTTP_403_FORBIDDEN)
-            else:
-                return Response({"message": "MFA not set up, proceeding."}, status=status.HTTP_200_OK)
-
-        if device.verify_token(code):
+        if not cached_code:
+            return Response({"error": "OTP has expired or was not generated. Please login again."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if str(code).strip() == str(cached_code).strip():
+            cache.delete(cache_key)
             refresh = RefreshToken.for_user(user)
             refresh['mfa_verified'] = True
             
             return Response({
+                "success": True,
                 "message": "MFA verified successfully.",
                 "access": str(refresh.access_token),
                 "refresh": str(refresh),
