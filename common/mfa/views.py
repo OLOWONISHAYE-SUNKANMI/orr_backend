@@ -122,3 +122,30 @@ class MFALoginVerifyView(APIView):
             })
         else:
             return Response({"error": "Invalid code"}, status=status.HTTP_400_BAD_REQUEST)
+
+from common.auth_views import generate_and_send_mfa_code
+
+class MFAResendOTPView(APIView):
+    """
+    Resends Email OTP code during login.
+    """
+    permission_classes = [AllowAny]
+
+    @extend_schema(summary="Resend Email OTP", responses={200: dict, 400: dict})
+    def post(self, request):
+        email = request.data.get('email')
+        
+        if not email:
+            return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        User = get_user_model()
+        user = User.objects.filter(email__iexact=email).first()
+        if not user:
+            return Response({"success": True, "message": "If the email is valid, a new code has been sent."})
+            
+        generate_and_send_mfa_code(user)
+        
+        return Response({
+            "success": True,
+            "message": "A new code has been sent to your email."
+        })
