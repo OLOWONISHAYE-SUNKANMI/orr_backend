@@ -12,6 +12,22 @@ from admin_portal.models import AdminProfile
 from client.models import Profile as ClientProfile
 from rest_framework import serializers
 from client.v1.serializers.auth import LoginSerializer
+from django.core.cache import cache
+from django.core.mail import send_mail
+from django.conf import settings
+import random
+
+def generate_and_send_mfa_code(user):
+    otp_code = f"{random.randint(100000, 999999)}"
+    cache_key = f"mfa_otp_{user.email}"
+    cache.set(cache_key, otp_code, timeout=300)
+    send_mail(
+        subject="Your ORR Solutions Authentication Code",
+        message=f"Your authentication code is: {otp_code}. It expires in 5 minutes.",
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+        fail_silently=True,
+    )
 
 class LoginResponseSerializer(serializers.Serializer):
     access = serializers.CharField()
@@ -54,6 +70,7 @@ class LoginView(APIView):
         refresh = RefreshToken.for_user(user)
         if mfa_required and user.is_staff:
             refresh['mfa_verified'] = False
+            generate_and_send_mfa_code(user)
         else:
             refresh['mfa_verified'] = True
 
@@ -228,6 +245,7 @@ class GoogleLoginView(APIView):
             refresh = RefreshToken.for_user(user)
             if mfa_required and user.is_staff:
                 refresh['mfa_verified'] = False
+                generate_and_send_mfa_code(user)
             else:
                 refresh['mfa_verified'] = True
 
