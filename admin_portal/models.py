@@ -3,6 +3,7 @@ from django.db import models
 from django.utils import timezone
 
 from common.models import Audit
+from common.state_machine import StateMachineMixin
 
 # Import CMS models
 from .models_cms import *
@@ -16,6 +17,7 @@ class AdminRole(models.Model):
         ("admin", "Admin"),
         ("operator", "Operator/Support"),
         ("content_editor", "Content Editor"),
+        ("qa_tester", "QA Tester"),
     ]
 
     name = models.CharField(max_length=50, choices=ROLE_CHOICES, unique=True)
@@ -43,6 +45,17 @@ class AdminRole(models.Model):
     def __str__(self):
         return self.get_name_display()
 
+
+class AccessLog(models.Model):
+    """Tracks login attempts for security auditing"""
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='access_logs')
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=[('SUCCESS', 'Success'), ('FAILED', 'Failed')])
+    timestamp = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"{self.user} - {self.status} at {self.timestamp}"
 
 class AdminProfile(Audit):
     """Extended profile for admin users"""
@@ -104,8 +117,9 @@ class Client(Audit):
         return f"{self.user.get_full_name()} - {self.company}"
 
 
-class Ticket(Audit):
+class Ticket(StateMachineMixin, Audit):
     """Payment and support ticket system"""
+    STATE_MACHINE_MODEL_KEY = 'ticket'
 
     STATUS_CHOICES = [
         ("new", "New"),
@@ -216,8 +230,9 @@ class TicketMessage(Audit):
         return f"{self.ticket.ticket_id} - {self.sender.username}"
 
 
-class Content(Audit):
+class Content(StateMachineMixin, Audit):
     """Content management for client portal"""
+    STATE_MACHINE_MODEL_KEY = 'content'
 
     TYPE_CHOICES = [
         ("faq", "FAQ"),
@@ -281,8 +296,9 @@ class Content(Audit):
         return self.title
 
 
-class Meeting(Audit):
+class Meeting(StateMachineMixin, Audit):
     """Meeting management system"""
+    STATE_MACHINE_MODEL_KEY = 'meeting'
 
     TYPE_CHOICES = [
         ("discovery", "Discovery"),
@@ -620,6 +636,7 @@ class SystemConfig(models.Model):
     """System-level security and operational configuration flags"""
 
     mfa_enforced = models.BooleanField(default=True)
+    mfa_enforced_roles = models.JSONField(default=list, help_text='List of roles that require MFA, e.g. ["admin", "consultant", "pm", "client"]')
     ip_bounds_restricted = models.BooleanField(default=False)
     strict_interceptors = models.BooleanField(default=True)
     maintenance_mode = models.BooleanField(default=False)
@@ -1011,4 +1028,19 @@ class StudioDocument(Audit):
         ]
 
     def __str__(self):
-        return f"{self.title} ({self.get_type_display()}) — {self.owner.username}"
+        return f"{self.title} ({self.get_type_display()}) - {self.owner.username}"
+
+class UATSignOff(models.Model):
+    """Records formal digital sign-off from ORR for the final UAT milestone."""
+    signed_by_name = models.CharField(max_length=255)
+    signed_by_email = models.EmailField()
+    signed_by_role = models.CharField(max_length=100, default='ORR Stakeholder')
+    milestone_name = models.CharField(max_length=255, default='Final UAT & Handover')
+    agreed_to_sla = models.BooleanField(default=True)
+    agreed_to_defect_resolution = models.BooleanField(default=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    sign_off_date = models.DateTimeField(auto_now_add=True)
+    cryptographic_signature = models.TextField(blank=True, help_text="Optional cryptographic signature of the terms")
+
+    def __str__(self):
+        return f"{self.milestone_name} signed by {self.signed_by_name} on {self.sign_off_date}"

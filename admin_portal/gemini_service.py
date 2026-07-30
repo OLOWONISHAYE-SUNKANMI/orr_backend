@@ -45,7 +45,7 @@ def _get_client():
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-MODEL_ID = "gemini-2.0-flash"
+MODEL_ID = "gemini-3.6-flash"
 
 ORR_SYSTEM_CONTEXT = """You are an AI assistant for ORR Solutions, a professional consultancy firm based in Malta.
 

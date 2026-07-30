@@ -127,7 +127,7 @@ class ConsultantJobSerializer(serializers.ModelSerializer):
 from consultation.models import ConsultantInvoice, ConsultantDocument, ConsultantMessage, ConsultantMeeting, ConsultantNotification, Consultant
 
 class ConsultantInvoiceSerializer(serializers.ModelSerializer):
-    consultant = serializers.SlugRelatedField(slug_field='consultant_number', queryset=Consultant.objects.all())
+    consultant = serializers.SlugRelatedField(slug_field='consultant_number', queryset=Consultant.objects.all(), required=False)
     class Meta:
         model = ConsultantInvoice
         fields = '__all__'

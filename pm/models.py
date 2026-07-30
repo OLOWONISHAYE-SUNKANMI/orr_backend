@@ -13,13 +13,13 @@ from django.db import models
 from django.utils import timezone
 
 from common.models import Audit
-
+from common.state_machine import StateMachineMixin
 
 # ═══════════════════════════════════════════════════════════
 # 1. PROJECT
 # ═══════════════════════════════════════════════════════════
 
-class PMProject(Audit):
+class PMProject(StateMachineMixin, Audit):
     """
     Full project record created by PM, linked to an approved client.
     Covers the Project Creation Schema and PM Workflow steps 1–14.
@@ -360,11 +360,11 @@ class PMProjectDocument(Audit):
 # 2. TASKS
 # ═══════════════════════════════════════════════════════════
 
-class PMTask(Audit):
+class PMTask(StateMachineMixin, Audit):
     """
-    Task / Sub-Task within a project.
-    Covers the Task Creation Schema.
+    Represents an atomic piece of work assigned to a Consultant for a specific Project.
     """
+    STATE_MACHINE_MODEL_KEY = 'pm_task'
 
     STATUS_CHOICES = [
         ('draft', 'Draft'),
@@ -653,11 +653,12 @@ class PMConsultantMatch(Audit):
         return f"Match: {self.consultant} for {self.project.project_id}"
 
 
-class PMAssignment(Audit):
+class PMAssignment(StateMachineMixin, Audit):
     """
-    Formal consultant assignment to a project.
-    Covers the Consultant Matching / Assignment Schema.
+    Tracks which consultant is working on which project.
+    Created when PM matches a consultant, or consultant accepts an opportunity.
     """
+    STATE_MACHINE_MODEL_KEY = 'pm_assignment'
 
     STATUS_CHOICES = [
         ('draft', 'Draft'),

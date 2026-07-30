@@ -28,10 +28,11 @@ class MeetingPrepResponseSerializer(serializers.Serializer):
 
 
 class DocumentSummaryRequestSerializer(serializers.Serializer):
-    document_id = serializers.IntegerField(required=False, help_text="ClientDocument ID")
-    content_id = serializers.IntegerField(required=False, help_text="Content ID")
     text = serializers.CharField(required=False, help_text="Raw text to summarize")
-    title = serializers.CharField(required=False, default="Untitled")
+    title = serializers.CharField(required=False, help_text="Document or content title")
+    document_id = serializers.IntegerField(required=False, help_text="Optional ClientDocument ID")
+    content_id = serializers.IntegerField(required=False, help_text="Optional Content ID")
+    session_id = serializers.CharField(required=False, help_text="Optional session ID for chat history")
 
 
 class DocumentSummaryResponseSerializer(serializers.Serializer):
@@ -53,6 +54,8 @@ class ClientInsightsResponseSerializer(serializers.Serializer):
 
 class AIChatRequestSerializer(serializers.Serializer):
     message = serializers.CharField(help_text="User message to send to AI assistant")
+    session_id = serializers.CharField(required=False, help_text="Session ID for chat history")
+    document_id = serializers.IntegerField(required=False, help_text="Associated ClientDocument ID")
     conversation_history = serializers.ListField(
         child=serializers.DictField(),
         required=False,

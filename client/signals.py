@@ -65,16 +65,21 @@ def notify_admins_on_ticket_created(sender, instance, created, **kwargs):
 def auto_create_activity(sender, instance, created, **kwargs):
     """Auto-create activities for key models"""
     if sender == Meeting and created:
-        user = getattr(instance, "requester", None)
-        if not user:
+        user = getattr(instance, "client", None)
+        if user and hasattr(user, "user"):
+            user = user.user
+        else:
             return
-        Activity.objects.create(
-            user=user,
-            action_type="Meeting Activity",
-            title="Upcoming meeting scheduled",
-            message="Meeting on {instance.requested_datetime}",
-        )
-        invalidate_recommendations_cache.delay(user.id)
+        try:
+            Activity.objects.create(
+                user=user,
+                activity_type="MEETING",
+                title="Upcoming meeting scheduled",
+                message=f"Meeting on {instance.requested_datetime}",
+            )
+            invalidate_recommendations_cache.delay(user.id)
+        except Exception:
+            pass
 
 
 @receiver(post_save, sender=User)

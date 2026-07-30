@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from django.contrib.auth.signals import user_logged_in, user_login_failed
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
@@ -16,6 +17,7 @@ from .models import (
     TicketMessage,
     WalletTransaction,
     ApprovalQueue,
+    AccessLog,
 )
 from .auto_reply_service import AutoReplyService
 
@@ -367,3 +369,47 @@ def handle_admin_role_change(sender, instance, created, **kwargs):
             )
         except Exception as e:
             logger.error(f"Failed to send role change email: {e}")
+
+def get_client_ip(request):
+    if not request:
+        return None
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
+@receiver(user_logged_in)
+def log_user_login(sender, request, user, **kwargs):
+    try:
+        ip_address = get_client_ip(request)
+        user_agent = request.META.get('HTTP_USER_AGENT', '') if request else ''
+        AccessLog.objects.create(
+            user=user,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            status='SUCCESS'
+        )
+    except Exception as e:
+        logger.error(f"Error logging successful login: {e}")
+
+@receiver(user_login_failed)
+def log_user_login_failed(sender, credentials, request, **kwargs):
+    try:
+        ip_address = get_client_ip(request)
+        user_agent = request.META.get('HTTP_USER_AGENT', '') if request else ''
+        
+        user = None
+        email = credentials.get('email') or credentials.get('username')
+        if email:
+            user = User.objects.filter(email=email).first() or User.objects.filter(username=email).first()
+            
+        AccessLog.objects.create(
+            user=user,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            status='FAILED'
+        )
+    except Exception as e:
+        logger.error(f"Error logging failed login: {e}")

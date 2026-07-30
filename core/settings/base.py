@@ -44,6 +44,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django_otp",
+    "django_otp.plugins.otp_totp",
     "corsheaders",
     "rest_framework",
     "drf_spectacular",
@@ -69,8 +71,10 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",  # Disabled for API
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "common.thread_local_middleware.ThreadLocalUserMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
-    # "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "common.mfa_enforcement.MFAEnforcementMiddleware",
 ]
 
 # Storage settings for Django 4.2+
@@ -163,7 +167,13 @@ LANGUAGES = [
     ('ar', 'Arabic'),
 ]
 
+# i18n / modeltranslation config
+MODELTRANSLATION_DEFAULT_LANGUAGE = 'en'
 MODELTRANSLATION_FALLBACK_LANGUAGES = ('en',)
+
+# Session Management
+SESSION_COOKIE_AGE = 3600  # 1 hour
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 
 TIME_ZONE = "UTC"
@@ -200,7 +210,7 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ("common.response.CustomJSONRenderer",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "common.authentication.SessionTimeoutJWTAuthentication",
     ],
     "DEFAULT_THROTTLE_RATES": {
         "user": "100/day",
@@ -218,6 +228,7 @@ SIMPLE_JWT = {
 
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+
 EMAIL_HOST = config("EMAIL_HOST", default="smtp.gmail.com")
 EMAIL_PORT = config("EMAIL_PORT", cast=int, default=587)
 EMAIL_USE_TLS = config("EMAIL_USE_TLS", cast=bool, default=True)
@@ -244,6 +255,18 @@ SPECTACULAR_SETTINGS = {
     },
 }
 
+import sys
+
+class DisableMigrations:
+    def __contains__(self, item):
+        return True
+    def __getitem__(self, item):
+        return None
+
+if 'test' in sys.argv:
+    MIGRATION_MODULES = DisableMigrations()
+    
+# celery
 CELERY_BROKER_URL = config("CELERY_BROKER_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 

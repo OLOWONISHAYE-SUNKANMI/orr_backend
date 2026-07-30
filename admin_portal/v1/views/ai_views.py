@@ -183,6 +183,31 @@ class DocumentSummaryView(APIView):
             )
 
         result = gemini_service.summarize_document(title=title, content=text)
+        
+        # Save to chat history if session_id is provided
+        session_id = data.get("session_id")
+        if session_id and doc_id:
+            try:
+                doc = ClientDocument.objects.get(pk=doc_id)
+                conversation, _ = AIConversation.objects.get_or_create(
+                    client=doc.client,
+                    session_id=session_id,
+                    defaults={"messages": []},
+                )
+                messages = conversation.messages or []
+                
+                ai_reply = result.get("summary", "")
+                key_points = result.get("key_points")
+                if key_points:
+                    ai_reply += "\n\n**Key Points:**\n- " + "\n- ".join(key_points)
+                    
+                messages.append({"role": "user", "content": "Generate an outline for this document."})
+                messages.append({"role": "assistant", "content": ai_reply})
+                conversation.messages = messages
+                conversation.save()
+            except Exception as e:
+                logger.error(f"Failed to log document summary to conversation: {e}")
+
         return Response(DocumentSummaryResponseSerializer(result).data)
 
 
@@ -235,6 +260,28 @@ class AIAssistantChatView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(description="Get conversation history by session_id")
+    def get(self, request):
+        session_id = request.query_params.get("session_id")
+        if not session_id:
+            return Response({"error": "session_id query parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        client_obj = None
+        try:
+            client_obj = Client.objects.get(user=request.user)
+        except Client.DoesNotExist:
+            pass
+
+        qs = AIConversation.objects.filter(session_id=session_id)
+        if client_obj:
+            qs = qs.filter(client=client_obj)
+        
+        conversation = qs.first()
+        if not conversation:
+            return Response({"messages": []})
+        
+        return Response({"messages": conversation.messages})
+
     def post(self, request):
         serializer = AIChatRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -242,6 +289,8 @@ class AIAssistantChatView(APIView):
 
         # Build user context from their profile
         user_context = data.get("context", "")
+        client_obj = None
+        
         if not user_context:
             try:
                 client_obj = Client.objects.get(user=request.user)
@@ -262,22 +311,32 @@ class AIAssistantChatView(APIView):
 
         # Log the conversation for AI oversight
         try:
-            client_obj = Client.objects.get(user=request.user)
-            import uuid
-
-            session_id = request.data.get("session_id", str(uuid.uuid4())[:8])
-            conversation, _ = AIConversation.objects.get_or_create(
-                client=client_obj,
-                session_id=session_id,
-                defaults={"messages": []},
-            )
-            messages = conversation.messages or []
-            messages.append({"role": "user", "content": data["message"]})
-            messages.append({"role": "assistant", "content": reply})
-            conversation.messages = messages
-            conversation.save()
-        except Client.DoesNotExist:
-            pass  # Non-client users (admins, consultants) don't get logged
+            document_id = data.get("document_id")
+            if document_id and not client_obj:
+                try:
+                    doc = ClientDocument.objects.get(pk=document_id)
+                    client_obj = doc.client
+                except ClientDocument.DoesNotExist:
+                    pass
+            elif not client_obj:
+                try:
+                    client_obj = Client.objects.get(user=request.user)
+                except Client.DoesNotExist:
+                    pass
+                
+            if client_obj:
+                import uuid
+                session_id = data.get("session_id") or request.data.get("session_id") or str(uuid.uuid4())[:8]
+                conversation, _ = AIConversation.objects.get_or_create(
+                    client=client_obj,
+                    session_id=session_id,
+                    defaults={"messages": []},
+                )
+                messages = conversation.messages or []
+                messages.append({"role": "user", "content": data["message"]})
+                messages.append({"role": "assistant", "content": reply})
+                conversation.messages = messages
+                conversation.save()
         except Exception as e:
             logger.warning(f"Failed to log AI conversation: {e}")
 
