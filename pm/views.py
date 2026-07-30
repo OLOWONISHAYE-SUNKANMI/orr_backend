@@ -114,7 +114,7 @@ from .serializers import (
     PMOpportunityListSerializer, PMOpportunityDetailSerializer,
     PMOpportunityResponseSerializer,
 )
-from .permissions import IsPMOrAdmin, IsAdminUser, IsConsultantUser, IsAssignedConsultant
+from .permissions import IsPMOrAdmin, IsAdminUser, IsConsultantUser, IsAssignedConsultant, IsPMUser
 
 logger = logging.getLogger(__name__)
 
@@ -1932,3 +1932,58 @@ class PMMessageViewSet(viewsets.ModelViewSet):
                 title='New Message from PM',
                 text=f"You have a new message from {self.request.user.get_full_name() or 'your Project Manager'}.",
             )
+
+class PMProfileView(APIView):
+    """
+    Retrieve and update PM profile information.
+    """
+    permission_classes = [IsAuthenticated, IsPMUser]
+
+    def get(self, request, *args, **kwargs):
+        admin_profile = getattr(request.user, 'admin_profile', None)
+        
+        active_projects = Project.objects.filter(status='active').count()
+        tasks_completed = ProjectTask.objects.filter(status='completed').count()
+        open_requests = Opportunity.objects.filter(status='open').count()
+
+        return Response({
+            'success': True,
+            'data': {
+                'first_name': request.user.first_name,
+                'last_name': request.user.last_name,
+                'email': request.user.email,
+                'phone': admin_profile.phone if admin_profile else '',
+                'bio': admin_profile.bio if admin_profile else '',
+                'company_name': admin_profile.company_name if admin_profile else '',
+                'stats': {
+                    'active_projects': active_projects,
+                    'tasks_completed': tasks_completed,
+                    'open_requests': open_requests,
+                }
+            }
+        }, status=status.HTTP_200_OK)
+
+    def put(self, request, *args, **kwargs):
+        admin_profile = getattr(request.user, 'admin_profile', None)
+        if not admin_profile:
+            return Response({'error': 'Admin profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        data = request.data
+        if 'first_name' in data:
+            request.user.first_name = data['first_name']
+        if 'last_name' in data:
+            request.user.last_name = data['last_name']
+        request.user.save()
+
+        if 'phone' in data:
+            admin_profile.phone = data['phone']
+        if 'bio' in data:
+            admin_profile.bio = data['bio']
+        if 'company_name' in data:
+            admin_profile.company_name = data['company_name']
+        admin_profile.save()
+
+        return Response({
+            'success': True,
+            'message': 'Profile updated successfully'
+        }, status=status.HTTP_200_OK)
