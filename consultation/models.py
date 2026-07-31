@@ -259,6 +259,7 @@ class ConsultantDocument(Audit):
     job = models.ForeignKey(ConsultantJob, on_delete=models.SET_NULL, null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='LOCKED')
     parent_id = models.CharField(max_length=100, null=True, blank=True)
+    file = models.FileField(upload_to='consultant_documents/', null=True, blank=True)
     file_size = models.IntegerField(default=0)
     mime_type = models.CharField(max_length=100, blank=True)
 
