@@ -263,6 +263,42 @@ class ConsultantDocument(Audit):
     file_size = models.IntegerField(default=0)
     mime_type = models.CharField(max_length=100, blank=True)
 
+    def get_document_link(self, request=None):
+        if self.file:
+            try:
+                name = self.file.name
+                if not name: return None
+                if name.startswith('http://') or name.startswith('https://'):
+                    url = name
+                else:
+                    from django.conf import settings
+                    bucket_name = getattr(settings, 'GS_BUCKET_NAME', 'orr-solutions-media')
+                    default_storage = getattr(settings, 'STORAGES', {}).get('default', {}).get('BACKEND', '')
+                    if 'GoogleCloudStorage' in default_storage or 'gcloud' in str(getattr(settings, 'DEFAULT_FILE_STORAGE', '')):
+                        url = f"https://storage.googleapis.com/{bucket_name}/{name}"
+                    else:
+                        media_url = getattr(settings, 'MEDIA_URL', '/media/')
+                        url = f"{media_url.rstrip('/')}/{name}"
+                
+                # Ensure the url has an extension, docs viewer relies on it.
+                if '.' not in url.split('/')[-1]:
+                    if 'spreadsheet' in self.mime_type or 'excel' in self.mime_type or self.mime_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+                        url += '.xlsx'
+                    elif 'word' in self.mime_type or self.mime_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+                        url += '.docx'
+                    elif 'powerpoint' in self.mime_type or 'presentation' in self.mime_type:
+                        url += '.pptx'
+
+                if url.startswith('/'):
+                    if request: return request.build_absolute_uri(url)
+                    from decouple import config
+                    api_url = config('BACKEND_URL', default='https://orr-backend-105825824472.asia-southeast2.run.app')
+                    return f"{api_url.rstrip('/')}{url}"
+                return url
+            except Exception:
+                pass
+        return None
+
 class ConsultantMessage(Audit):
     SENDER_CHOICES = [
         ('CONSULTANT', 'Consultant'),
