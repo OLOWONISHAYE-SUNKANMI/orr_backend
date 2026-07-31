@@ -134,9 +134,14 @@ class ConsultantInvoiceSerializer(serializers.ModelSerializer):
 
 class ConsultantDocumentSerializer(serializers.ModelSerializer):
     consultant = serializers.SlugRelatedField(slug_field='consultant_number', queryset=Consultant.objects.all())
+    link = serializers.SerializerMethodField()
     class Meta:
         model = ConsultantDocument
         fields = '__all__'
+
+    def get_link(self, obj):
+        request = self.context.get('request')
+        return obj.get_document_link(request)
 
 class ConsultantMessageSerializer(serializers.ModelSerializer):
     consultant = serializers.SlugRelatedField(slug_field='consultant_number', queryset=Consultant.objects.all())
