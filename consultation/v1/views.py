@@ -668,7 +668,7 @@ class ConsultantMessageViewSet(viewsets.ModelViewSet):
             )
 
     @action(detail=False, methods=['get'])
-    def directory(self, request):
+    def directory(self, request, *args, **kwargs):
         from django.contrib.auth import get_user_model
         User = get_user_model()
         # The user requested to only show exactly the 6 PMs.
