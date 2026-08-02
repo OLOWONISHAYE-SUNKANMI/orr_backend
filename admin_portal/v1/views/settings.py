@@ -211,6 +211,108 @@ class CreateAdminUserView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+from django.core.mail import send_mail
+from django.conf import settings as django_settings
+import string
+import random
+
+def generate_temp_password(length=12):
+    chars = string.ascii_letters + string.digits + "!@#$%^&*"
+    return ''.join(random.choice(chars) for _ in range(length))
+
+@extend_schema(
+    tags=["Settings & System Config"],
+    summary="Create Platform User (Consultant or PM)",
+    description="Create a new Consultant or Project Manager and send welcome email with a temporary password.",
+)
+class CreatePlatformUserView(APIView):
+    """Create Platform User (Consultant or PM)"""
+
+    permission_classes = [IsAdminUser, CanManageUsers]
+
+    def post(self, request):
+        role_type = request.data.get("role_type") # 'consultant' or 'pm'
+        email = request.data.get("email")
+        first_name = request.data.get("first_name", "")
+        last_name = request.data.get("last_name", "")
+        
+        if not email or not role_type:
+            return Response({"error": "email and role_type are required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if User.objects.filter(email=email).exists():
+            return Response({"error": "User with this email already exists"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        username = email.split('@')[0]
+        if User.objects.filter(username=username).exists():
+            username = f"{username}_{random.randint(1000, 9999)}"
+            
+        temp_password = generate_temp_password()
+        
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=temp_password,
+            first_name=first_name,
+            last_name=last_name,
+            is_staff=(role_type == 'pm') # PMs are staff
+        )
+        
+        if role_type == 'pm':
+            role, _ = AdminRole.objects.get_or_create(name="admin")
+            AdminProfile.objects.create(
+                user=user,
+                role=role,
+                department="PM"
+            )
+        elif role_type == 'consultant':
+            from consultation.models import Consultant, ConsultantProfile
+            consultant = Consultant.objects.create(
+                user=user,
+                registration_status='approved'
+            )
+            ConsultantProfile.objects.create(
+                consultant=consultant,
+                first_name=first_name,
+                last_name=last_name,
+                personal_email=email
+            )
+        else:
+            user.delete()
+            return Response({"error": "Invalid role_type. Must be 'pm' or 'consultant'."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        # Send Email
+        try:
+            subject = f"Welcome to ORR Solution - Your {role_type.upper()} Account"
+            message = f"Hello {first_name},\n\nYour account has been created.\n\nEmail: {email}\nTemporary Password: {temp_password}\n\nPlease login and change your password."
+            send_mail(
+                subject,
+                message,
+                django_settings.DEFAULT_FROM_EMAIL,
+                [email],
+                fail_silently=True,
+            )
+        except Exception as e:
+            pass # Handle quietly if email fails
+            
+        AuditLog.objects.create(
+            user=request.user,
+            action="create",
+            model_name="User",
+            object_id=str(user.pk),
+            description=f"{role_type.upper()} user created: {user.username}",
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
+        
+        return Response(
+            {
+                "message": f"{role_type.upper()} user created successfully. Temporary password sent to email.",
+                "user_id": user.id,
+                "email": user.email,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
 @extend_schema(
     tags=["Settings & System Config"],
     summary="Perform user management actions",
@@ -304,3 +406,64 @@ class AuditLogListView(generics.ListAPIView):
             queryset = queryset.filter(timestamp__lte=date_to)
 
         return queryset.order_by("-timestamp")
+
+
+@extend_schema(
+    tags=["Settings & System Config"],
+    summary="Delete Platform User",
+    description="Delete a User and all their associated profiles (Client, Consultant, AdminProfile).",
+)
+class DeletePlatformUserView(APIView):
+    """Delete Platform User"""
+    permission_classes = [IsAdminUser, CanManageUsers]
+
+    def delete(self, request, pk):
+        try:
+            user = User.objects.get(pk=pk)
+            # Create audit log before deletion
+            AuditLog.objects.create(
+                user=request.user,
+                action="delete",
+                model_name="User",
+                object_id=str(user.pk),
+                description=f"User deleted: {user.username}",
+                ip_address=request.META.get("REMOTE_ADDR"),
+            )
+            user.delete()
+            return Response({"message": "User deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+@extend_schema(
+    tags=["Settings & System Config"],
+    summary="List all platform users",
+    description="Retrieve a list of all users across the platform.",
+)
+class PlatformUserListView(generics.ListAPIView):
+    """List all platform users"""
+    permission_classes = [IsAdminUser, CanManageUsers]
+
+    def get(self, request):
+        users = User.objects.all().order_by('-date_joined')
+        data = []
+        for u in users:
+            role = "User"
+            if hasattr(u, 'admin_profile'):
+                role = f"Admin - {u.admin_profile.department}" if u.admin_profile.department else "Admin"
+            elif hasattr(u, 'client_profile'):
+                role = "Client"
+            elif hasattr(u, 'consultant'):
+                role = "Consultant"
+                
+            data.append({
+                "id": u.id,
+                "username": u.username,
+                "email": u.email,
+                "first_name": u.first_name,
+                "last_name": u.last_name,
+                "role": role,
+                "is_active": u.is_active,
+                "date_joined": u.date_joined,
+            })
+        return Response(data)

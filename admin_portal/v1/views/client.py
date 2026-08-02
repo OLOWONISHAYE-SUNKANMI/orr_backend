@@ -322,8 +322,8 @@ class ClientListView(generics.ListCreateAPIView):
     summary="Get or update client details",
     description="Retrieve detailed information about a specific client or update client information including company details, stage, pillar assignments, and internal notes.",
 )
-class ClientDetailView(generics.RetrieveUpdateAPIView):
-    """Get and update client details"""
+class ClientDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Get, update, or delete client details"""
 
     queryset = Client.objects.select_related("user", "assigned_admin").all()
     permission_classes = [CanViewAllClients]

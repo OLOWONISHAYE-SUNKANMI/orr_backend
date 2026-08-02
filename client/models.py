@@ -149,6 +149,17 @@ class OnboardingQuestionnaire(Audit):
     has_active_project = models.CharField(
         max_length=10, choices=[("yes", "Yes"), ("no", "No"), ("maybe", "Maybe")]
     )
+    
+    ai_preference = models.CharField(
+        max_length=50,
+        choices=[
+            ("concise", "Concise"),
+            ("scientific", "Scientific/Technical"),
+            ("friendly", "Friendly/Conversational"),
+            ("professional", "Professional/Formal"),
+        ],
+        default="concise",
+    )
     project_description = models.TextField(
         blank=True, validators=[MinLengthValidator(10)]
     )
