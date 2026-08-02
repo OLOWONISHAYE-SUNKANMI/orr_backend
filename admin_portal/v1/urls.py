@@ -348,6 +348,21 @@ settings_patterns = [
         name="create-admin-user",
     ),
     path(
+        "platform-users/create/",
+        settings.CreatePlatformUserView.as_view(),
+        name="create-platform-user",
+    ),
+    path(
+        "platform-users/",
+        settings.PlatformUserListView.as_view(),
+        name="platform-user-list",
+    ),
+    path(
+        "platform-users/<int:pk>/delete/",
+        settings.DeletePlatformUserView.as_view(),
+        name="delete-platform-user",
+    ),
+    path(
         "users/<int:pk>/",
         settings.AdminUserDetailView.as_view(),
         name="admin-user-detail",
