@@ -249,7 +249,7 @@ class CreatePlatformUserView(APIView):
     permission_classes = [IsAdminUser, CanManageUsers]
 
     def post(self, request):
-        from django.db import transaction
+        from django.db import transaction, IntegrityError
         role_type = request.data.get("role_type") # 'consultant', 'pm', or 'client'
         email = request.data.get("email")
         first_name = request.data.get("first_name", "")
@@ -355,6 +355,11 @@ class CreatePlatformUserView(APIView):
                     from admin_portal.models import Client
                     from client.models import Profile as ClientProfile
                     
+                    # Defensive: remove any stale Client/ClientProfile rows
+                    # that might reference this user_id (from a prior partial create)
+                    Client.objects.filter(user=user).delete()
+                    ClientProfile.objects.filter(user=user).delete()
+                    
                     client_obj = Client.objects.create(
                         user=user,
                         company=f"{first_name} {last_name} Company",
@@ -368,6 +373,52 @@ class CreatePlatformUserView(APIView):
                     )
                 else:
                     return Response({"error": "Invalid role_type. Must be 'pm', 'consultant', or 'client'."}, status=status.HTTP_400_BAD_REQUEST)
+        except IntegrityError as e:
+            error_msg = str(e)
+            # If the IntegrityError is about a stale record, attempt cleanup and retry once
+            if 'admin_portal_client_user_id_key' in error_msg or 'unique constraint' in error_msg.lower():
+                try:
+                    # The user was created in the rolled-back transaction, so re-query
+                    stale_user = User.objects.filter(email=email).first()
+                    if stale_user:
+                        from admin_portal.models import Client
+                        from client.models import Profile as ClientProfile
+                        Client.objects.filter(user=stale_user).delete()
+                        ClientProfile.objects.filter(user=stale_user).delete()
+                        stale_user.delete()
+                    # Retry creation
+                    with transaction.atomic():
+                        user = User.objects.create_user(
+                            username=username, email=email, password=temp_password,
+                            first_name=first_name, last_name=last_name,
+                            is_staff=(role_type == 'pm')
+                        )
+                        if role_type == 'client':
+                            from admin_portal.models import Client
+                            from client.models import Profile as ClientProfile
+                            Client.objects.create(
+                                user=user, company=f"{first_name} {last_name} Company",
+                                stage="discover", primary_pillar="strategic"
+                            )
+                            ClientProfile.objects.create(
+                                user=user, full_name=f"{first_name} {last_name}".strip(),
+                                nickname=first_name
+                            )
+                        elif role_type == 'pm':
+                            role, _ = AdminRole.objects.get_or_create(name="admin")
+                            AdminProfile.objects.create(user=user, role=role, department="PM")
+                        elif role_type == 'consultant':
+                            from consultation.models import Consultant, ConsultantProfile
+                            cid = f"ORR-CONS-{Consultant.objects.count() + 1:06d}"
+                            cons = Consultant.objects.create(user=user, consultant_number=cid, status='APPROVED')
+                            ConsultantProfile.objects.create(
+                                consultant=cons, full_name=f"{first_name} {last_name}".strip(),
+                                display_name=first_name
+                            )
+                except Exception as retry_err:
+                    return Response({"error": f"Failed to create user after cleanup: {str(retry_err)}"}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response({"error": f"Failed to create user or profile: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": f"Failed to create user or profile: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
             

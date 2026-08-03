@@ -334,11 +334,94 @@ class ClientDetailView(generics.RetrieveUpdateDestroyAPIView):
         return ClientUpdateSerializer
 
     def perform_destroy(self, instance):
+        from django.db import transaction, connection
+
         user = instance.user
-        if user:
-            user.delete()
-        else:
+        if not user:
             instance.delete()
+            return
+
+        try:
+            with transaction.atomic():
+                # Set a statement timeout to avoid hanging the connection
+                if connection.vendor == "postgresql":
+                    with connection.cursor() as cursor:
+                        cursor.execute("SET LOCAL statement_timeout = '55s';")
+
+                # Manually delete high-volume related objects first to avoid
+                # a single massive CASCADE that can exceed Cloud Run's 60s limit.
+                # Order: deepest children first, then parent tables.
+
+                # -- Ticket children, then tickets themselves --
+                from admin_portal.models import TicketMessage, Ticket
+
+                client_ticket_ids = list(
+                    Ticket.objects.filter(client=instance).values_list("id", flat=True)
+                )
+                if client_ticket_ids:
+                    TicketMessage.objects.filter(
+                        ticket_id__in=client_ticket_ids
+                    ).delete()
+                    Ticket.objects.filter(id__in=client_ticket_ids).delete()
+
+                # -- Client documents --
+                from admin_portal.models import ClientDocument
+
+                ClientDocument.objects.filter(client=instance).delete()
+
+                # -- Payment records --
+                try:
+                    from payment.models import Invoice, StripeProfile
+
+                    Invoice.objects.filter(user=user).delete()
+                    StripeProfile.objects.filter(user=user).delete()
+                except Exception:
+                    pass
+
+                # -- Admin sessions --
+                from admin_portal.models import AdminSession
+
+                AdminSession.objects.filter(user=user).delete()
+
+                # -- Notification / TicketMessage where user is sender --
+                TicketMessage.objects.filter(sender=user).delete()
+
+                # -- Dispute notes --
+                try:
+                    from admin_portal.models import DisputeNote
+
+                    DisputeNote.objects.filter(created_by=user).delete()
+                except Exception:
+                    pass
+
+                # -- Consultation messages referencing this user as pm --
+                try:
+                    from consultation.models import ConsultantMessage
+
+                    ConsultantMessage.objects.filter(pm=user).delete()
+                except Exception:
+                    pass
+
+                # -- Client profile (client app) --
+                try:
+                    from client.models import Profile as ClientProfile
+
+                    ClientProfile.objects.filter(user=user).delete()
+                except Exception:
+                    pass
+
+                # -- Now delete the Client row itself --
+                instance.delete()
+
+                # -- Finally delete the user (remaining CASCADE is light) --
+                user.delete()
+        except Exception:
+            # Fallback: if manual cleanup errors, try the simple cascade
+            # (may still timeout, but worth trying)
+            if user:
+                user.delete()
+            else:
+                instance.delete()
 
 
 @extend_schema(
