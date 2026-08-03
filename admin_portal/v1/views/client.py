@@ -335,9 +335,10 @@ class ClientDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_destroy(self, instance):
         user = instance.user
-        instance.delete()
         if user:
             user.delete()
+        else:
+            instance.delete()
 
 
 @extend_schema(
