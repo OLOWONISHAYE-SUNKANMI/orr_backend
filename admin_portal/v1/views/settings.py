@@ -303,9 +303,8 @@ class CreatePlatformUserView(APIView):
             client_obj = Client.objects.create(
                 user=user,
                 company=f"{first_name} {last_name} Company",
-                industry="Other",
                 stage="discover",
-                pillar="strategic"
+                primary_pillar="strategic"
             )
             ClientProfile.objects.create(
                 user=user,
@@ -343,9 +342,11 @@ class CreatePlatformUserView(APIView):
         
         return Response(
             {
-                "message": f"{role_type.upper()} user created successfully. Temporary password sent to email.",
+                "message": f"{role_type.upper()} user created successfully.",
                 "user_id": user.id,
                 "email": user.email,
+                "username": username,
+                "password": temp_password,
             },
             status=status.HTTP_201_CREATED,
         )
