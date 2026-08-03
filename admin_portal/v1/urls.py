@@ -99,6 +99,11 @@ client_patterns = [
         name="client-document-detail",
     ),
     path("stats/", client.ClientStatsView.as_view(), name="client-stats"),
+    path(
+        "<int:pk>/delete/",
+        client.ClientDeleteView.as_view(),
+        name="client-delete",
+    ),
 ]
 
 # Consultant Approvals URLs
