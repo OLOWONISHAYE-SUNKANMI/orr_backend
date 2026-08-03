@@ -353,6 +353,17 @@ def _raw_delete_client(client_instance):
     """
     from django.db import connection
 
+    def _safe_sql(cursor, sql, params=None):
+        """Execute SQL but skip gracefully if the table doesn't exist."""
+        try:
+            cursor.execute(sql, params or [])
+        except Exception as exc:
+            if "does not exist" in str(exc):
+                # Table hasn't been created yet — skip silently
+                connection.ensure_connection()
+            else:
+                raise
+
     client_id = client_instance.id
     user_id = client_instance.user_id
 
@@ -373,7 +384,7 @@ def _raw_delete_client(client_instance):
         # ──────────────────────────────────────────────────
 
         # 1a. TicketMessage  (FK → Ticket → Client)
-        cursor.execute("""
+        _safe_sql(cursor, """
             DELETE FROM admin_portal_ticketmessage
             WHERE ticket_id IN (
                 SELECT id FROM admin_portal_ticket WHERE client_id = %s
@@ -381,12 +392,12 @@ def _raw_delete_client(client_instance):
         """, [client_id])
 
         # 1b. Tickets
-        cursor.execute(
+        _safe_sql(cursor,
             "DELETE FROM admin_portal_ticket WHERE client_id = %s", [client_id]
         )
 
         # 1c. DocumentVersion (FK → ClientDocument → Client)
-        cursor.execute("""
+        _safe_sql(cursor, """
             DELETE FROM admin_portal_documentversion
             WHERE document_id IN (
                 SELECT id FROM admin_portal_clientdocument WHERE client_id = %s
@@ -394,7 +405,7 @@ def _raw_delete_client(client_instance):
         """, [client_id])
 
         # 1d. FavoriteDocument (FK → ClientDocument)
-        cursor.execute("""
+        _safe_sql(cursor, """
             DELETE FROM client_favoritedocument
             WHERE document_id IN (
                 SELECT id FROM admin_portal_clientdocument WHERE client_id = %s
@@ -402,23 +413,23 @@ def _raw_delete_client(client_instance):
         """, [client_id])
 
         # 1e. ClientDocument
-        cursor.execute(
+        _safe_sql(cursor,
             "DELETE FROM admin_portal_clientdocument WHERE client_id = %s", [client_id]
         )
 
         # 1f. VaultFolder (self-referencing — delete children first)
-        cursor.execute("""
+        _safe_sql(cursor, """
             DELETE FROM admin_portal_vaultfolder
             WHERE parent_id IN (
                 SELECT id FROM admin_portal_vaultfolder WHERE client_id = %s
             )
         """, [client_id])
-        cursor.execute(
+        _safe_sql(cursor,
             "DELETE FROM admin_portal_vaultfolder WHERE client_id = %s", [client_id]
         )
 
         # 1g. DisputeNote (FK → PaymentDispute → Client)
-        cursor.execute("""
+        _safe_sql(cursor, """
             DELETE FROM admin_portal_disputenote
             WHERE dispute_id IN (
                 SELECT id FROM admin_portal_paymentdispute WHERE client_id = %s
@@ -426,28 +437,28 @@ def _raw_delete_client(client_instance):
         """, [client_id])
 
         # 1h. PaymentDispute
-        cursor.execute(
+        _safe_sql(cursor,
             "DELETE FROM admin_portal_paymentdispute WHERE client_id = %s", [client_id]
         )
 
         # 1i. ProRataApproval
-        cursor.execute(
+        _safe_sql(cursor,
             "DELETE FROM admin_portal_prorataapproval WHERE client_id = %s", [client_id]
         )
 
         # 1j. WalletTransaction
-        cursor.execute(
+        _safe_sql(cursor,
             "DELETE FROM admin_portal_wallettransaction WHERE client_id = %s", [client_id]
         )
 
         # 1k. SystemNotification (FK → Client, FK → Ticket — tickets already gone)
-        cursor.execute(
+        _safe_sql(cursor,
             "DELETE FROM admin_portal_systemnotification WHERE related_client_id = %s",
             [client_id],
         )
 
         # 1l. Meetings
-        cursor.execute(
+        _safe_sql(cursor,
             "DELETE FROM admin_portal_meeting WHERE client_id = %s", [client_id]
         )
 
@@ -456,7 +467,7 @@ def _raw_delete_client(client_instance):
         # ──────────────────────────────────────────────────
 
         # 2a. Transaction (FK → Wallet → User, FK → Project → Client)
-        cursor.execute("""
+        _safe_sql(cursor, """
             DELETE FROM client_transaction
             WHERE wallet_id IN (
                 SELECT id FROM client_wallet WHERE owner_id = %s
@@ -464,52 +475,52 @@ def _raw_delete_client(client_instance):
         """, [user_id])
 
         # 2b. Wallet
-        cursor.execute(
+        _safe_sql(cursor,
             "DELETE FROM client_wallet WHERE owner_id = %s", [user_id]
         )
 
-        # 2c. ConsultationRequest children (attachments, status history)
-        # StatusHistory FK → ConsultationRequest
-        cursor.execute("""
-            DELETE FROM client_statushistory
+        # 2c. ClientRequest children (documents, version history)
+        # ClientRequestVersion FK → ClientRequest
+        _safe_sql(cursor, """
+            DELETE FROM client_clientrequestversion
             WHERE request_id IN (
-                SELECT id FROM client_consultationrequest WHERE client_id = %s
+                SELECT id FROM client_clientrequest WHERE client_id = %s
             )
         """, [client_id])
-        # RequestAttachment FK → ConsultationRequest
-        cursor.execute("""
-            DELETE FROM client_requestattachment
+        # ClientRequestDocument FK → ClientRequest
+        _safe_sql(cursor, """
+            DELETE FROM client_clientrequestdocument
             WHERE request_id IN (
-                SELECT id FROM client_consultationrequest WHERE client_id = %s
+                SELECT id FROM client_clientrequest WHERE client_id = %s
             )
         """, [client_id])
-        # ConsultationRequest
-        cursor.execute(
-            "DELETE FROM client_consultationrequest WHERE client_id = %s", [client_id]
+        # ClientRequest
+        _safe_sql(cursor,
+            "DELETE FROM client_clientrequest WHERE client_id = %s", [client_id]
         )
 
         # 2d. Project
-        cursor.execute(
+        _safe_sql(cursor,
             "DELETE FROM client_project WHERE client_id = %s", [client_id]
         )
 
         # 2e. FavoriteDocument (by user)
-        cursor.execute(
+        _safe_sql(cursor,
             "DELETE FROM client_favoritedocument WHERE user_id = %s", [user_id]
         )
 
-        # 2f. ActivityLog
-        cursor.execute(
-            "DELETE FROM client_activitylog WHERE user_id = %s", [user_id]
+        # 2f. Activity
+        _safe_sql(cursor,
+            "DELETE FROM client_activity WHERE user_id = %s", [user_id]
         )
 
         # 2g. OnboardingQuestionnaire
-        cursor.execute(
+        _safe_sql(cursor,
             "DELETE FROM client_onboardingquestionnaire WHERE user_id = %s", [user_id]
         )
 
         # 2h. Client Profile (client app)
-        cursor.execute(
+        _safe_sql(cursor,
             "DELETE FROM client_profile WHERE user_id = %s", [user_id]
         )
 
@@ -518,51 +529,51 @@ def _raw_delete_client(client_instance):
         # ──────────────────────────────────────────────────
 
         # 3a. Payment tables
-        cursor.execute("DELETE FROM payment_invoice WHERE user_id = %s", [user_id])
-        cursor.execute(
+        _safe_sql(cursor, "DELETE FROM payment_invoice WHERE user_id = %s", [user_id])
+        _safe_sql(cursor,
             "DELETE FROM payment_checkoutsessionlog WHERE user_id = %s", [user_id]
         )
-        cursor.execute(
+        _safe_sql(cursor,
             "DELETE FROM payment_subscription WHERE user_id = %s", [user_id]
         )
-        cursor.execute(
+        _safe_sql(cursor,
             "DELETE FROM payment_stripecustomer WHERE user_id = %s", [user_id]
         )
 
         # 3b. Admin sessions
-        cursor.execute(
+        _safe_sql(cursor,
             "DELETE FROM admin_portal_adminsession WHERE user_id = %s", [user_id]
         )
 
         # 3c. TicketMessage by sender (user authored messages on other clients' tickets)
-        cursor.execute(
+        _safe_sql(cursor,
             "DELETE FROM admin_portal_ticketmessage WHERE sender_id = %s", [user_id]
         )
 
         # 3d. DisputeNote by created_by
-        cursor.execute(
+        _safe_sql(cursor,
             "DELETE FROM admin_portal_disputenote WHERE created_by_id = %s", [user_id]
         )
 
         # 3e. SystemNotification where recipient is this user
-        cursor.execute(
+        _safe_sql(cursor,
             "DELETE FROM admin_portal_systemnotification WHERE recipient_id = %s",
             [user_id],
         )
 
         # 3f. ConsultantMessage (pm field)
-        cursor.execute(
+        _safe_sql(cursor,
             "DELETE FROM consultation_consultantmessage WHERE pm_id = %s", [user_id]
         )
 
         # 3g. AccessLog (SET_NULL but let's clean up)
-        cursor.execute(
+        _safe_sql(cursor,
             "UPDATE admin_portal_accesslog SET user_id = NULL WHERE user_id = %s",
             [user_id],
         )
 
         # 3h. AuditLog (SET_NULL)
-        cursor.execute(
+        _safe_sql(cursor,
             "UPDATE admin_portal_auditlog SET user_id = NULL WHERE user_id = %s",
             [user_id],
         )
