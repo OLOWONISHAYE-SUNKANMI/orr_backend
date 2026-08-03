@@ -334,94 +334,298 @@ class ClientDetailView(generics.RetrieveUpdateDestroyAPIView):
         return ClientUpdateSerializer
 
     def perform_destroy(self, instance):
-        from django.db import transaction, connection
+        _raw_delete_client(instance)
 
-        user = instance.user
-        if not user:
-            instance.delete()
-            return
+
+def _raw_delete_client(client_instance):
+    """
+    Delete a client and ALL related data using raw SQL.
+
+    Why raw SQL instead of Django ORM?
+    1. Django ORM's cascade fires a `post_delete` signal for EVERY row deleted
+       (global handler in common/signals.py creates an AuditLog per row).
+    2. With hundreds of related rows across 15+ tables, that means hundreds of
+       extra INSERT statements, easily exceeding Cloud Run's 60s timeout.
+    3. Raw SQL does a single DELETE per table — no Python-level iteration,
+       no signal dispatch, no N+1 audit writes.
+
+    Deletion order: deepest children first, then parents, then the User.
+    """
+    from django.db import connection
+
+    client_id = client_instance.id
+    user_id = client_instance.user_id
+
+    if not user_id:
+        # No user linked — just remove the client row directly
+        with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM admin_portal_client WHERE id = %s", [client_id])
+        return
+
+    with connection.cursor() as cursor:
+        # Set a generous statement timeout as safety net
+        if connection.vendor == "postgresql":
+            cursor.execute("SET LOCAL statement_timeout = '50s';")
+
+        # ──────────────────────────────────────────────────
+        # PHASE 1: Delete children of Client-owned tables
+        # (deepest FK children first)
+        # ──────────────────────────────────────────────────
+
+        # 1a. TicketMessage  (FK → Ticket → Client)
+        cursor.execute("""
+            DELETE FROM admin_portal_ticketmessage
+            WHERE ticket_id IN (
+                SELECT id FROM admin_portal_ticket WHERE client_id = %s
+            )
+        """, [client_id])
+
+        # 1b. Tickets
+        cursor.execute(
+            "DELETE FROM admin_portal_ticket WHERE client_id = %s", [client_id]
+        )
+
+        # 1c. DocumentVersion (FK → ClientDocument → Client)
+        cursor.execute("""
+            DELETE FROM admin_portal_documentversion
+            WHERE document_id IN (
+                SELECT id FROM admin_portal_clientdocument WHERE client_id = %s
+            )
+        """, [client_id])
+
+        # 1d. FavoriteDocument (FK → ClientDocument)
+        cursor.execute("""
+            DELETE FROM client_favoritedocument
+            WHERE document_id IN (
+                SELECT id FROM admin_portal_clientdocument WHERE client_id = %s
+            )
+        """, [client_id])
+
+        # 1e. ClientDocument
+        cursor.execute(
+            "DELETE FROM admin_portal_clientdocument WHERE client_id = %s", [client_id]
+        )
+
+        # 1f. VaultFolder (self-referencing — delete children first)
+        cursor.execute("""
+            DELETE FROM admin_portal_vaultfolder
+            WHERE parent_id IN (
+                SELECT id FROM admin_portal_vaultfolder WHERE client_id = %s
+            )
+        """, [client_id])
+        cursor.execute(
+            "DELETE FROM admin_portal_vaultfolder WHERE client_id = %s", [client_id]
+        )
+
+        # 1g. DisputeNote (FK → PaymentDispute → Client)
+        cursor.execute("""
+            DELETE FROM admin_portal_disputenote
+            WHERE dispute_id IN (
+                SELECT id FROM admin_portal_paymentdispute WHERE client_id = %s
+            )
+        """, [client_id])
+
+        # 1h. PaymentDispute
+        cursor.execute(
+            "DELETE FROM admin_portal_paymentdispute WHERE client_id = %s", [client_id]
+        )
+
+        # 1i. ProRataApproval
+        cursor.execute(
+            "DELETE FROM admin_portal_prorataapproval WHERE client_id = %s", [client_id]
+        )
+
+        # 1j. WalletTransaction
+        cursor.execute(
+            "DELETE FROM admin_portal_wallettransaction WHERE client_id = %s", [client_id]
+        )
+
+        # 1k. SystemNotification (FK → Client, FK → Ticket — tickets already gone)
+        cursor.execute(
+            "DELETE FROM admin_portal_systemnotification WHERE related_client_id = %s",
+            [client_id],
+        )
+
+        # 1l. Meetings
+        cursor.execute(
+            "DELETE FROM admin_portal_meeting WHERE client_id = %s", [client_id]
+        )
+
+        # ──────────────────────────────────────────────────
+        # PHASE 2: Delete from client app tables
+        # ──────────────────────────────────────────────────
+
+        # 2a. Transaction (FK → Wallet → User, FK → Project → Client)
+        cursor.execute("""
+            DELETE FROM client_transaction
+            WHERE wallet_id IN (
+                SELECT id FROM client_wallet WHERE owner_id = %s
+            )
+        """, [user_id])
+
+        # 2b. Wallet
+        cursor.execute(
+            "DELETE FROM client_wallet WHERE owner_id = %s", [user_id]
+        )
+
+        # 2c. ConsultationRequest children (attachments, status history)
+        # StatusHistory FK → ConsultationRequest
+        cursor.execute("""
+            DELETE FROM client_statushistory
+            WHERE request_id IN (
+                SELECT id FROM client_consultationrequest WHERE client_id = %s
+            )
+        """, [client_id])
+        # RequestAttachment FK → ConsultationRequest
+        cursor.execute("""
+            DELETE FROM client_requestattachment
+            WHERE request_id IN (
+                SELECT id FROM client_consultationrequest WHERE client_id = %s
+            )
+        """, [client_id])
+        # ConsultationRequest
+        cursor.execute(
+            "DELETE FROM client_consultationrequest WHERE client_id = %s", [client_id]
+        )
+
+        # 2d. Project
+        cursor.execute(
+            "DELETE FROM client_project WHERE client_id = %s", [client_id]
+        )
+
+        # 2e. FavoriteDocument (by user)
+        cursor.execute(
+            "DELETE FROM client_favoritedocument WHERE user_id = %s", [user_id]
+        )
+
+        # 2f. ActivityLog
+        cursor.execute(
+            "DELETE FROM client_activitylog WHERE user_id = %s", [user_id]
+        )
+
+        # 2g. OnboardingQuestionnaire
+        cursor.execute(
+            "DELETE FROM client_onboardingquestionnaire WHERE user_id = %s", [user_id]
+        )
+
+        # 2h. Client Profile (client app)
+        cursor.execute(
+            "DELETE FROM client_profile WHERE user_id = %s", [user_id]
+        )
+
+        # ──────────────────────────────────────────────────
+        # PHASE 3: Delete User-linked rows across other apps
+        # ──────────────────────────────────────────────────
+
+        # 3a. Payment tables
+        cursor.execute("DELETE FROM payment_invoice WHERE user_id = %s", [user_id])
+        cursor.execute(
+            "DELETE FROM payment_checkoutsessionlog WHERE user_id = %s", [user_id]
+        )
+        cursor.execute(
+            "DELETE FROM payment_subscription WHERE user_id = %s", [user_id]
+        )
+        cursor.execute(
+            "DELETE FROM payment_stripecustomer WHERE user_id = %s", [user_id]
+        )
+
+        # 3b. Admin sessions
+        cursor.execute(
+            "DELETE FROM admin_portal_adminsession WHERE user_id = %s", [user_id]
+        )
+
+        # 3c. TicketMessage by sender (user authored messages on other clients' tickets)
+        cursor.execute(
+            "DELETE FROM admin_portal_ticketmessage WHERE sender_id = %s", [user_id]
+        )
+
+        # 3d. DisputeNote by created_by
+        cursor.execute(
+            "DELETE FROM admin_portal_disputenote WHERE created_by_id = %s", [user_id]
+        )
+
+        # 3e. SystemNotification where recipient is this user
+        cursor.execute(
+            "DELETE FROM admin_portal_systemnotification WHERE recipient_id = %s",
+            [user_id],
+        )
+
+        # 3f. ConsultantMessage (pm field)
+        cursor.execute(
+            "DELETE FROM consultation_consultantmessage WHERE pm_id = %s", [user_id]
+        )
+
+        # 3g. AccessLog (SET_NULL but let's clean up)
+        cursor.execute(
+            "UPDATE admin_portal_accesslog SET user_id = NULL WHERE user_id = %s",
+            [user_id],
+        )
+
+        # 3h. AuditLog (SET_NULL)
+        cursor.execute(
+            "UPDATE admin_portal_auditlog SET user_id = NULL WHERE user_id = %s",
+            [user_id],
+        )
+
+        # ──────────────────────────────────────────────────
+        # PHASE 4: Delete the Client row, then the User row
+        # ──────────────────────────────────────────────────
+        cursor.execute(
+            "DELETE FROM admin_portal_client WHERE id = %s", [client_id]
+        )
+        cursor.execute(
+            "DELETE FROM auth_user WHERE id = %s", [user_id]
+        )
+
+
+@extend_schema(
+    tags=["Client Management"],
+    summary="Delete a client (optimized)",
+    description="Permanently deletes a client and all associated data using optimized raw SQL. "
+    "This bypasses Django ORM cascade to avoid timeout on Cloud Run.",
+)
+class ClientDeleteView(APIView):
+    """Dedicated optimized client delete endpoint"""
+
+    permission_classes = [CanEditClients]
+
+    def delete(self, request, pk):
+        try:
+            client = Client.objects.select_related("user").get(pk=pk)
+        except Client.DoesNotExist:
+            return Response(
+                {"error": "Client not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        client_name = str(client)
+        user_id = client.user_id
 
         try:
-            with transaction.atomic():
-                # Set a statement timeout to avoid hanging the connection
-                if connection.vendor == "postgresql":
-                    with connection.cursor() as cursor:
-                        cursor.execute("SET LOCAL statement_timeout = '55s';")
+            _raw_delete_client(client)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Client delete failed: {e}")
+            return Response(
+                {"error": f"Failed to delete client: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
-                # Manually delete high-volume related objects first to avoid
-                # a single massive CASCADE that can exceed Cloud Run's 60s limit.
-                # Order: deepest children first, then parent tables.
+        # Log the deletion (single audit entry, not hundreds)
+        from admin_portal.models import AuditLog
 
-                # -- Ticket children, then tickets themselves --
-                from admin_portal.models import TicketMessage, Ticket
+        AuditLog.objects.create(
+            user=request.user,
+            action="delete",
+            model_name="Client",
+            object_id=str(pk),
+            description=f"Client deleted: {client_name} (user_id={user_id})",
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
 
-                client_ticket_ids = list(
-                    Ticket.objects.filter(client=instance).values_list("id", flat=True)
-                )
-                if client_ticket_ids:
-                    TicketMessage.objects.filter(
-                        ticket_id__in=client_ticket_ids
-                    ).delete()
-                    Ticket.objects.filter(id__in=client_ticket_ids).delete()
-
-                # -- Client documents --
-                from admin_portal.models import ClientDocument
-
-                ClientDocument.objects.filter(client=instance).delete()
-
-                # -- Payment records --
-                try:
-                    from payment.models import Invoice, StripeProfile
-
-                    Invoice.objects.filter(user=user).delete()
-                    StripeProfile.objects.filter(user=user).delete()
-                except Exception:
-                    pass
-
-                # -- Admin sessions --
-                from admin_portal.models import AdminSession
-
-                AdminSession.objects.filter(user=user).delete()
-
-                # -- Notification / TicketMessage where user is sender --
-                TicketMessage.objects.filter(sender=user).delete()
-
-                # -- Dispute notes --
-                try:
-                    from admin_portal.models import DisputeNote
-
-                    DisputeNote.objects.filter(created_by=user).delete()
-                except Exception:
-                    pass
-
-                # -- Consultation messages referencing this user as pm --
-                try:
-                    from consultation.models import ConsultantMessage
-
-                    ConsultantMessage.objects.filter(pm=user).delete()
-                except Exception:
-                    pass
-
-                # -- Client profile (client app) --
-                try:
-                    from client.models import Profile as ClientProfile
-
-                    ClientProfile.objects.filter(user=user).delete()
-                except Exception:
-                    pass
-
-                # -- Now delete the Client row itself --
-                instance.delete()
-
-                # -- Finally delete the user (remaining CASCADE is light) --
-                user.delete()
-        except Exception:
-            # Fallback: if manual cleanup errors, try the simple cascade
-            # (may still timeout, but worth trying)
-            if user:
-                user.delete()
-            else:
-                instance.delete()
+        return Response(
+            {"message": f"Client {pk} deleted successfully."},
+            status=status.HTTP_200_OK,
+        )
 
 
 @extend_schema(
