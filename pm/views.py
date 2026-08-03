@@ -1941,10 +1941,15 @@ class PMProfileView(APIView):
 
     def get(self, request, *args, **kwargs):
         admin_profile = getattr(request.user, 'admin_profile', None)
+        consultant_profile = getattr(request.user, 'consultant', None).profile if hasattr(getattr(request.user, 'consultant', None), 'profile') else None
         
         active_projects = PMProject.objects.filter(assigned_pm=request.user, status='active').count()
         tasks_completed = PMTask.objects.filter(project__assigned_pm=request.user, status='completed').count()
         open_requests = PMOpportunity.objects.filter(project__assigned_pm=request.user, response_status='invited').count()
+
+        phone = admin_profile.phone if admin_profile else (consultant_profile.phone if consultant_profile and hasattr(consultant_profile, 'phone') else '')
+        bio = admin_profile.bio if admin_profile else (consultant_profile.bio if consultant_profile and hasattr(consultant_profile, 'bio') else '')
+        company_name = admin_profile.company_name if admin_profile else (consultant_profile.company_name if consultant_profile and hasattr(consultant_profile, 'company_name') else '')
 
         return Response({
             'success': True,
@@ -1952,9 +1957,9 @@ class PMProfileView(APIView):
                 'first_name': request.user.first_name,
                 'last_name': request.user.last_name,
                 'email': request.user.email,
-                'phone': admin_profile.phone if admin_profile else '',
-                'bio': admin_profile.bio if admin_profile else '',
-                'company_name': admin_profile.company_name if admin_profile else '',
+                'phone': phone,
+                'bio': bio,
+                'company_name': company_name,
                 'stats': {
                     'active_projects': active_projects,
                     'tasks_completed': tasks_completed,
@@ -1965,8 +1970,9 @@ class PMProfileView(APIView):
 
     def put(self, request, *args, **kwargs):
         admin_profile = getattr(request.user, 'admin_profile', None)
-        if not admin_profile:
-            return Response({'error': 'Admin profile not found'}, status=status.HTTP_404_NOT_FOUND)
+        consultant = getattr(request.user, 'consultant', None)
+        if not admin_profile and not consultant:
+            return Response({'error': 'Profile not found'}, status=status.HTTP_404_NOT_FOUND)
 
         data = request.data
         if 'first_name' in data:
@@ -1975,9 +1981,24 @@ class PMProfileView(APIView):
             request.user.last_name = data['last_name']
         request.user.save()
 
-        if 'phone' in data:
-            admin_profile.phone = data['phone']
-        if 'bio' in data:
+        if admin_profile:
+            if 'phone' in data:
+                admin_profile.phone = data['phone']
+            if 'bio' in data:
+                admin_profile.bio = data['bio']
+            if 'company_name' in data:
+                admin_profile.company_name = data['company_name']
+            admin_profile.save()
+        elif consultant:
+            profile = getattr(consultant, 'profile', None)
+            if profile:
+                if 'phone' in data and hasattr(profile, 'phone'):
+                    profile.phone = data['phone']
+                if 'bio' in data and hasattr(profile, 'bio'):
+                    profile.bio = data['bio']
+                if 'company_name' in data and hasattr(profile, 'company_name'):
+                    profile.company_name = data['company_name']
+                profile.save()
             admin_profile.bio = data['bio']
         if 'company_name' in data:
             admin_profile.company_name = data['company_name']

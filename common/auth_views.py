@@ -159,10 +159,21 @@ class GoogleLoginView(APIView):
                         status=status.HTTP_403_FORBIDDEN,
                     )
                 if not hasattr(user, 'admin_profile'):
-                    return Response(
-                        {"message": "Unauthorized portal access. Admin profile not found."},
-                        status=status.HTTP_403_FORBIDDEN,
-                    )
+                    # Allow consultants to access the PM portal if they are acting as PMs
+                    if portal == "pm" and hasattr(user, 'consultant'):
+                        pass
+                    elif getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False):
+                        from admin_portal.models import AdminRole, AdminProfile
+                        admin_role, _ = AdminRole.objects.get_or_create(
+                            name="admin",
+                            defaults={"description": "Default admin role"}
+                        )
+                        AdminProfile.objects.create(user=user, role=admin_role, is_active=True)
+                    else:
+                        return Response(
+                            {"message": "Unauthorized portal access. Admin profile not found."},
+                            status=status.HTTP_403_FORBIDDEN,
+                        )
                     
             if not user:
                 is_new_user = True

@@ -333,6 +333,12 @@ class ClientDetailView(generics.RetrieveUpdateDestroyAPIView):
             return ClientDetailSerializer
         return ClientUpdateSerializer
 
+    def perform_destroy(self, instance):
+        user = instance.user
+        instance.delete()
+        if user:
+            user.delete()
+
 
 @extend_schema(
     tags=["Client Management"],
