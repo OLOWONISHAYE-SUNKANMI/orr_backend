@@ -257,6 +257,19 @@ class CreatePlatformUserView(APIView):
         
         if not email or not role_type:
             return Response({"error": "email and role_type are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Proactively clean up any orphan records in Client, ClientProfile, and Consultant
+        # where the user no longer exists in auth_user to prevent unique/foreign key conflicts.
+        try:
+            from admin_portal.models import Client
+            from client.models import Profile as ClientProfile
+            from consultation.models import Consultant
+
+            Client.objects.exclude(user_id__in=User.objects.values('id')).delete()
+            ClientProfile.objects.exclude(user_id__in=User.objects.values('id')).delete()
+            Consultant.objects.exclude(user_id__in=User.objects.values('id')).delete()
+        except Exception:
+            pass
             
         # Clean up any existing user with this email that has no profile to prevent unique constraint lockouts
         existing_user = User.objects.filter(email=email).first()
