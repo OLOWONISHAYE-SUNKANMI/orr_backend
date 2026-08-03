@@ -249,7 +249,8 @@ class CreatePlatformUserView(APIView):
     permission_classes = [IsAdminUser, CanManageUsers]
 
     def post(self, request):
-        role_type = request.data.get("role_type") # 'consultant' or 'pm'
+        from django.db import transaction
+        role_type = request.data.get("role_type") # 'consultant', 'pm', or 'client'
         email = request.data.get("email")
         first_name = request.data.get("first_name", "")
         last_name = request.data.get("last_name", "")
@@ -257,63 +258,105 @@ class CreatePlatformUserView(APIView):
         if not email or not role_type:
             return Response({"error": "email and role_type are required"}, status=status.HTTP_400_BAD_REQUEST)
             
-        if User.objects.filter(email=email).exists():
-            return Response({"error": "User with this email already exists"}, status=status.HTTP_400_BAD_REQUEST)
+        # Clean up any existing user with this email that has no profile to prevent unique constraint lockouts
+        existing_user = User.objects.filter(email=email).first()
+        if existing_user:
+            has_profile = False
+            try:
+                if hasattr(existing_user, 'client_profile') and existing_user.client_profile:
+                    has_profile = True
+            except Exception:
+                pass
+            try:
+                if hasattr(existing_user, 'admin_profile') and existing_user.admin_profile:
+                    has_profile = True
+            except Exception:
+                pass
+            try:
+                from consultation.models import Consultant
+                if Consultant.objects.filter(user=existing_user).exists():
+                    has_profile = True
+            except Exception:
+                pass
+                
+            if not has_profile:
+                existing_user.delete()
+            else:
+                return Response({"error": "User with this email already exists"}, status=status.HTTP_400_BAD_REQUEST)
             
         username = email.split('@')[0]
-        if User.objects.filter(username=username).exists():
-            username = f"{username}_{random.randint(1000, 9999)}"
+        # Clean up orphan username too if needed
+        orphan_username_user = User.objects.filter(username=username).first()
+        if orphan_username_user:
+            has_profile = False
+            try:
+                if hasattr(orphan_username_user, 'client_profile') and orphan_username_user.client_profile:
+                    has_profile = True
+            except Exception:
+                pass
+            try:
+                if hasattr(orphan_username_user, 'admin_profile') and orphan_username_user.admin_profile:
+                    has_profile = True
+            except Exception:
+                pass
+            if not has_profile:
+                orphan_username_user.delete()
+            else:
+                username = f"{username}_{random.randint(1000, 9999)}"
             
         temp_password = generate_temp_password()
         
-        user = User.objects.create_user(
-            username=username,
-            email=email,
-            password=temp_password,
-            first_name=first_name,
-            last_name=last_name,
-            is_staff=(role_type == 'pm') # PMs are staff
-        )
-        
-        if role_type == 'pm':
-            role, _ = AdminRole.objects.get_or_create(name="admin")
-            AdminProfile.objects.create(
-                user=user,
-                role=role,
-                department="PM"
-            )
-        elif role_type == 'consultant':
-            from consultation.models import Consultant, ConsultantProfile
-            consultant_count = Consultant.objects.count() + 1
-            consultant_id = f"ORR-CONS-{consultant_count:06d}"
-            consultant = Consultant.objects.create(
-                user=user,
-                consultant_number=consultant_id,
-                status='APPROVED'
-            )
-            ConsultantProfile.objects.create(
-                consultant=consultant,
-                full_name=f"{first_name} {last_name}".strip(),
-                display_name=first_name
-            )
-        elif role_type == 'client':
-            from admin_portal.models import Client
-            from client.models import Profile as ClientProfile
-            
-            client_obj = Client.objects.create(
-                user=user,
-                company=f"{first_name} {last_name} Company",
-                stage="discover",
-                primary_pillar="strategic"
-            )
-            ClientProfile.objects.create(
-                user=user,
-                full_name=f"{first_name} {last_name}".strip(),
-                nickname=first_name
-            )
-        else:
-            user.delete()
-            return Response({"error": "Invalid role_type. Must be 'pm', 'consultant', or 'client'."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    password=temp_password,
+                    first_name=first_name,
+                    last_name=last_name,
+                    is_staff=(role_type == 'pm') # PMs are staff
+                )
+                
+                if role_type == 'pm':
+                    role, _ = AdminRole.objects.get_or_create(name="admin")
+                    AdminProfile.objects.create(
+                        user=user,
+                        role=role,
+                        department="PM"
+                    )
+                elif role_type == 'consultant':
+                    from consultation.models import Consultant, ConsultantProfile
+                    consultant_count = Consultant.objects.count() + 1
+                    consultant_id = f"ORR-CONS-{consultant_count:06d}"
+                    consultant = Consultant.objects.create(
+                        user=user,
+                        consultant_number=consultant_id,
+                        status='APPROVED'
+                    )
+                    ConsultantProfile.objects.create(
+                        consultant=consultant,
+                        full_name=f"{first_name} {last_name}".strip(),
+                        display_name=first_name
+                    )
+                elif role_type == 'client':
+                    from admin_portal.models import Client
+                    from client.models import Profile as ClientProfile
+                    
+                    client_obj = Client.objects.create(
+                        user=user,
+                        company=f"{first_name} {last_name} Company",
+                        stage="discover",
+                        primary_pillar="strategic"
+                    )
+                    ClientProfile.objects.create(
+                        user=user,
+                        full_name=f"{first_name} {last_name}".strip(),
+                        nickname=first_name
+                    )
+                else:
+                    return Response({"error": "Invalid role_type. Must be 'pm', 'consultant', or 'client'."}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": f"Failed to create user or profile: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
             
         # Send Email
         try:
