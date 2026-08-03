@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 from rest_framework import status
 
 from payment.models import Invoice, Subscription
-from admin_portal.models import Client, PaymentDispute
+from admin_portal.models import Client, PaymentDispute, DisputeNote
 from common.permissions import IsAdminUser
 
 
@@ -45,6 +45,63 @@ class PaymentDisputesOverviewView(APIView):
             "dispute_trends": dispute_trends,
             "resolution_metrics": resolution_metrics
         })
+
+    def post(self, request):
+        """Create a new payment dispute"""
+        client_id = request.data.get('client_id')
+        invoice_id = request.data.get('invoice_id')
+        dispute_amount = request.data.get('dispute_amount')
+        dispute_reason = request.data.get('dispute_reason', '')
+        dispute_type = request.data.get('dispute_type', 'inquiry')
+        evidence_due_days = request.data.get('evidence_due_days', 14)
+
+        if not client_id or not invoice_id or not dispute_amount:
+            return Response(
+                {"error": "client_id, invoice_id, and dispute_amount are required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            client = Client.objects.get(id=client_id)
+        except Client.DoesNotExist:
+            return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            invoice = Invoice.objects.get(id=invoice_id)
+        except Invoice.DoesNotExist:
+            return Response({"error": "Invoice not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if dispute_type not in dict(PaymentDispute.DISPUTE_TYPE_CHOICES):
+            return Response(
+                {"error": f"Invalid dispute_type. Valid: {', '.join(dict(PaymentDispute.DISPUTE_TYPE_CHOICES).keys())}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        dispute = PaymentDispute.objects.create(
+            client=client,
+            invoice=invoice,
+            dispute_amount=dispute_amount,
+            dispute_reason=dispute_reason,
+            dispute_type=dispute_type,
+            status='open',
+            evidence_due_date=timezone.now() + timedelta(days=int(evidence_due_days)),
+        )
+
+        return Response({
+            "status": "success",
+            "message": "Dispute created successfully.",
+            "dispute": {
+                "dispute_id": f"DP-{dispute.id:03d}",
+                "client_name": client.user.get_full_name() if client.user else "Unknown",
+                "invoice_id": invoice.stripe_invoice_id,
+                "amount": float(dispute.dispute_amount),
+                "dispute_type": dispute.dispute_type,
+                "reason": dispute.dispute_reason,
+                "status": dispute.status,
+                "created_date": dispute.created_at.isoformat(),
+                "due_date": dispute.evidence_due_date.isoformat() if dispute.evidence_due_date else None,
+            }
+        }, status=status.HTTP_201_CREATED)
     
     def _get_active_disputes(self):
         """Get currently active payment disputes from database"""
@@ -191,6 +248,14 @@ class DisputeActionsView(APIView):
     
     permission_classes = [IsAdminUser]
     
+    def _get_dispute(self, dispute_id):
+        """Resolve DP-XXX id to a real PaymentDispute record."""
+        numeric_id = dispute_id.replace('DP-', '').lstrip('0') or '0'
+        try:
+            return PaymentDispute.objects.get(id=int(numeric_id))
+        except (PaymentDispute.DoesNotExist, ValueError):
+            return None
+    
     def post(self, request, dispute_id):
         action = request.data.get('action')
         notes = request.data.get('notes', '')
@@ -206,18 +271,35 @@ class DisputeActionsView(APIView):
                 "error": f"Invalid action. Valid actions: {', '.join(valid_actions)}"
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        result = self._perform_dispute_action(dispute_id, action, notes, evidence_files)
+        dispute = self._get_dispute(dispute_id)
+        if not dispute:
+            return Response({"error": "Dispute not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        result = self._perform_dispute_action(dispute, action, notes, evidence_files, request.user)
         
         return Response(result)
     
-    def _perform_dispute_action(self, dispute_id, action, notes, evidence_files):
-        """Perform the requested dispute action"""
+    def _perform_dispute_action(self, dispute, action, notes, evidence_files, user):
+        """Perform the requested dispute action and persist changes to DB."""
+        dispute_id = f"DP-{dispute.id:03d}"
+
+        # Always log a note when an action is taken
+        if notes:
+            DisputeNote.objects.create(
+                dispute=dispute,
+                created_by=user,
+                note=f"[{action}] {notes}",
+                is_internal=True
+            )
         
         if action == 'submit_evidence':
+            dispute.status = 'under_review'
+            dispute.save(update_fields=['status', 'updated_at'])
             return {
                 "status": "success",
                 "message": f"Evidence submitted for dispute {dispute_id}",
                 "action": "submit_evidence",
+                "new_status": dispute.status,
                 "evidence_count": len(evidence_files),
                 "submitted_date": timezone.now().isoformat(),
                 "next_steps": [
@@ -240,10 +322,13 @@ class DisputeActionsView(APIView):
             }
         
         elif action == 'escalate':
+            dispute.status = 'under_review'
+            dispute.save(update_fields=['status', 'updated_at'])
             return {
                 "status": "success",
                 "message": f"Dispute {dispute_id} escalated to legal team",
                 "action": "escalate",
+                "new_status": dispute.status,
                 "escalated_to": "Legal Department",
                 "escalated_date": timezone.now().isoformat(),
                 "priority": "high",
@@ -251,24 +336,36 @@ class DisputeActionsView(APIView):
             }
         
         elif action == 'resolve_won':
+            dispute.status = 'resolved'
+            dispute.resolved_by = user
+            dispute.resolved_at = timezone.now()
+            dispute.resolution_notes = notes
+            dispute.save(update_fields=['status', 'resolved_by', 'resolved_at', 'resolution_notes', 'updated_at'])
             return {
                 "status": "success",
                 "message": f"Dispute {dispute_id} resolved in our favor",
                 "action": "resolve_won",
-                "resolution_date": timezone.now().isoformat(),
+                "new_status": dispute.status,
+                "resolution_date": dispute.resolved_at.isoformat(),
                 "funds_recovered": True,
-                "recovery_amount": 99.99,  # Would come from actual dispute data
+                "recovery_amount": float(dispute.dispute_amount),
                 "resolution_notes": notes
             }
         
         elif action == 'resolve_lost':
+            dispute.status = 'closed'
+            dispute.resolved_by = user
+            dispute.resolved_at = timezone.now()
+            dispute.resolution_notes = notes
+            dispute.save(update_fields=['status', 'resolved_by', 'resolved_at', 'resolution_notes', 'updated_at'])
             return {
                 "status": "success",
                 "message": f"Dispute {dispute_id} resolved - customer favor",
                 "action": "resolve_lost",
-                "resolution_date": timezone.now().isoformat(),
+                "new_status": dispute.status,
+                "resolution_date": dispute.resolved_at.isoformat(),
                 "refund_issued": True,
-                "refund_amount": 99.99,  # Would come from actual dispute data
+                "refund_amount": float(dispute.dispute_amount),
                 "resolution_notes": notes
             }
         
@@ -277,7 +374,7 @@ class DisputeActionsView(APIView):
                 "status": "success",
                 "message": f"Refund requested for dispute {dispute_id}",
                 "action": "request_refund",
-                "refund_amount": 99.99,  # Would come from actual dispute data
+                "refund_amount": float(dispute.dispute_amount),
                 "refund_method": "original_payment_method",
                 "processing_time": "3-5 business days",
                 "refund_id": f"rf_{timezone.now().strftime('%Y%m%d%H%M%S')}"
