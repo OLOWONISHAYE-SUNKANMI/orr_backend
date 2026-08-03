@@ -269,14 +269,34 @@ class ConsultantProfileView(APIView):
             data['country'] = consultant.profile.country
             data['timezone'] = consultant.profile.timezone
             data['jobTitle'] = consultant.profile.professional_title
-            data['availability'] = consultant.profile.availability
+            
+            # Map availability with defaults if empty
+            if consultant.profile.availability and isinstance(consultant.profile.availability, dict) and consultant.profile.availability:
+                data['availability'] = consultant.profile.availability
+            else:
+                data['availability'] = {
+                    'workingDays': ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+                    'workingHours': { 'start': '09:00', 'end': '17:00' },
+                    'calendarIntegration': False,
+                    'vacationDates': [],
+                    'unavailableDates': [],
+                    'publicHolidays': False,
+                    'autoBookingRules': False,
+                    'bufferTimeMinutes': 15,
+                    'maxDailyConsultations': '',
+                    'consultationDurationOptions': [30, 60]
+                }
+                if hasattr(consultant, 'work_preference'):
+                    wp = consultant.work_preference
+                    if wp.weekly_capacity:
+                        data['availability']['weeklyCapacity'] = wp.weekly_capacity
 
         # 2. Specialization
         if hasattr(consultant, 'specialization'):
             data['consultantCategory'] = consultant.specialization.primary_specialization
             data['primarySpecialization'] = consultant.specialization.primary_specialization
             data['secondarySpecializations'] = consultant.specialization.secondary_specializations
-            data['expertiseTags'] = consultant.specialization.expertise_tags
+            data['expertiseTags'] = consultant.specialization.expertise_tags if consultant.specialization.expertise_tags else consultant.specialization.secondary_specializations
             data['areasOfSpecialization'] = consultant.specialization.areas_of_specialization
             data['consultingMethodologies'] = consultant.specialization.consulting_methodologies
             
@@ -285,6 +305,8 @@ class ConsultantProfileView(APIView):
                 data['industryExpertise'] = consultant.specialization.industry_expertise
             elif hasattr(consultant, 'experience') and consultant.experience.sector_experience:
                 data['industryExpertise'] = consultant.experience.sector_experience
+            elif consultant.specialization.primary_specialization:
+                data['industryExpertise'] = [consultant.specialization.primary_specialization]
             else:
                 data['industryExpertise'] = []
 
@@ -296,6 +318,10 @@ class ConsultantProfileView(APIView):
                     'name': skill.skill_name,
                     'level': skill.proficiency_level or 'Intermediate'
                 })
+            else:
+                # Map custom skills to expertise tags if not already there
+                if hasattr(consultant, 'specialization') and skill.skill_name not in data.get('expertiseTags', []):
+                    data.setdefault('expertiseTags', []).append(skill.skill_name)
 
         # 4. IT Competence
         if hasattr(consultant, 'it_competence'):

@@ -111,7 +111,18 @@ class LoginSerializer(serializers.Serializer):
                     )
         elif portal in ["admin", "pm"]:
             if not hasattr(user, 'admin_profile'):
-                raise serializers.ValidationError("Unauthorized portal access. Admin profile not found.")
+                if portal == "pm" and hasattr(user, 'consultant'):
+                    pass
+                elif getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False):
+                    # Auto-heal missing AdminProfile for staff members
+                    from admin_portal.models import AdminRole, AdminProfile
+                    admin_role, _ = AdminRole.objects.get_or_create(
+                        name="admin",
+                        defaults={"description": "Default admin role"}
+                    )
+                    AdminProfile.objects.create(user=user, role=admin_role, is_active=True)
+                else:
+                    raise serializers.ValidationError("Unauthorized portal access. Admin profile not found.")
         # Get user role info
         role_info = self._get_user_role_info(user)
         attrs["user"] = user

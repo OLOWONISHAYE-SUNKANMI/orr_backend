@@ -134,8 +134,8 @@ class AdminUserListView(generics.ListAPIView):
     summary="Manage admin user",
     description="Retrieve or update admin user profile including role assignment and account status.",
 )
-class AdminUserDetailView(generics.RetrieveUpdateAPIView):
-    """Get and update admin user"""
+class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Get, update, or delete admin user"""
 
     queryset = AdminProfile.objects.select_related("user", "role").all()
     serializer_class = AdminProfileSerializer
@@ -151,6 +151,22 @@ class AdminUserDetailView(generics.RetrieveUpdateAPIView):
             model_name="AdminProfile",
             object_id=str(profile.pk),
             description=f"Admin profile updated: {profile.user.username}",
+            ip_address=self.request.META.get("REMOTE_ADDR"),
+        )
+
+    def perform_destroy(self, instance):
+        user = instance.user
+        instance.delete()
+        if user:
+            user.delete()
+
+        # Create audit log
+        AuditLog.objects.create(
+            user=self.request.user,
+            action="delete",
+            model_name="AdminProfile",
+            object_id=str(instance.pk),
+            description=f"Admin user and profile deleted: {user.username if user else 'Unknown'}",
             ip_address=self.request.META.get("REMOTE_ADDR"),
         )
 
@@ -266,24 +282,44 @@ class CreatePlatformUserView(APIView):
             )
         elif role_type == 'consultant':
             from consultation.models import Consultant, ConsultantProfile
+            consultant_count = Consultant.objects.count() + 1
+            consultant_id = f"ORR-CONS-{consultant_count:06d}"
             consultant = Consultant.objects.create(
                 user=user,
-                registration_status='approved'
+                consultant_number=consultant_id,
+                status='APPROVED'
             )
             ConsultantProfile.objects.create(
                 consultant=consultant,
-                first_name=first_name,
-                last_name=last_name,
-                personal_email=email
+                full_name=f"{first_name} {last_name}".strip(),
+                display_name=first_name
+            )
+        elif role_type == 'client':
+            from admin_portal.models import Client
+            from client.models import Profile as ClientProfile
+            
+            client_obj = Client.objects.create(
+                user=user,
+                company=f"{first_name} {last_name} Company",
+                industry="Other",
+                stage="discover",
+                pillar="strategic"
+            )
+            ClientProfile.objects.create(
+                user=user,
+                full_name=f"{first_name} {last_name}".strip(),
+                nickname=first_name
             )
         else:
             user.delete()
-            return Response({"error": "Invalid role_type. Must be 'pm' or 'consultant'."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Invalid role_type. Must be 'pm', 'consultant', or 'client'."}, status=status.HTTP_400_BAD_REQUEST)
             
         # Send Email
         try:
+            frontend_url = django_settings.FRONTEND_URL if hasattr(django_settings, 'FRONTEND_URL') else "http://localhost:3000"
+            login_link = f"{frontend_url}/login"
             subject = f"Welcome to ORR Solution - Your {role_type.upper()} Account"
-            message = f"Hello {first_name},\n\nYour account has been created.\n\nEmail: {email}\nTemporary Password: {temp_password}\n\nPlease login and change your password."
+            message = f"Hello {first_name},\n\nYour account has been created.\n\nEmail: {email}\nTemporary Password: {temp_password}\n\nPlease login using the following link:\n{login_link}"
             send_mail(
                 subject,
                 message,
