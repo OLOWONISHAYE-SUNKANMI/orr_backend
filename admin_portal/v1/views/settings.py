@@ -156,11 +156,8 @@ class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_destroy(self, instance):
         user = instance.user
-        instance.delete()
-        if user:
-            user.delete()
-
-        # Create audit log
+        
+        # Create audit log before deletion
         AuditLog.objects.create(
             user=self.request.user,
             action="delete",
@@ -169,6 +166,11 @@ class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
             description=f"Admin user and profile deleted: {user.username if user else 'Unknown'}",
             ip_address=self.request.META.get("REMOTE_ADDR"),
         )
+
+        if user:
+            user.delete()
+        else:
+            instance.delete()
 
 
 @extend_schema(
