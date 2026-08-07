@@ -244,12 +244,41 @@ class Project(Audit):
         ("internally_sourced", "Internally Sourced"),
     )
 
+    CLASSIFICATION_CHOICES = [
+        ('strategy', 'Strategy & Advisory'),
+        ('operations', 'Operational Systems'),
+        ('living_systems', 'Living Systems'),
+        ('mixed', 'Mixed'),
+    ]
+
+    CONFIDENTIALITY_CHOICES = [
+        ('standard', 'Standard'),
+        ('high', 'High'),
+        ('strict', 'Strict'),
+    ]
+
+    PRIORITY_CHOICES = [
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+        ('urgent', 'Urgent'),
+    ]
+
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='projects')
     name = models.CharField(max_length=255) 
     source = models.CharField(
         max_length=50, choices=SOURCE_CHOICES, default="client_portal"
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    
+    # Missing PM Fields
+    confidentiality_level = models.CharField(max_length=20, choices=CONFIDENTIALITY_CHOICES, default='standard')
+    urgent_priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='medium')
+    classification = models.CharField(max_length=50, choices=CLASSIFICATION_CHOICES, default='strategy')
+    roadmap = models.TextField(blank=True, help_text="Project Roadmap")
+    number_of_consultants = models.PositiveIntegerField(default=1)
+    internal_review_deadline = models.DateField(null=True, blank=True)
+
     start_date = models.DateField(default=timezone.now)
     end_date = models.DateField(null=True, blank=True)
     budget = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)

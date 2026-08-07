@@ -20,6 +20,7 @@ from .views import (
     PMProjectVersionsView,
     PMProjectDocumentUploadView,
     # Tasks
+    PMAllTasksListView,
     PMTaskListCreateView,
     PMTaskDetailView,
     PMTaskSubmitReviewView,
@@ -29,6 +30,7 @@ from .views import (
     PMConsultantMatchView,
     PMAddManualMatchView,
     PMProjectSourceExternallyView,
+    PMRequestConsultantView,
     # Assignments
     PMAssignmentCreateView,
     PMAssignmentDetailView,
@@ -42,6 +44,7 @@ from .views import (
     PMOpportunityRespondView,
     # Dashboard
     PMDashboardView,
+    PMDashboardOptionsView,
     PMConsultantAssignmentsView,
     PMConsultantTasksView,
     PMConsultantProjectDetailView,
@@ -55,6 +58,8 @@ from .views import (
     PMMessageDirectoryView,
     PMMessageViewSet,
     PMProfileView,
+    PMClientRequestListView,
+    PMClientRequestDetailView,
 )
 
 pm_msg_router = DefaultRouter()
@@ -70,6 +75,7 @@ urlpatterns = [
 
     # ── Dashboard ──
     path('v1/dashboard/', PMDashboardView.as_view(), name='dashboard'),
+    path('v1/dashboard/options/', PMDashboardOptionsView.as_view(), name='dashboard-options'),
     path('v1/profile/', PMProfileView.as_view(), name='pm-profile'),
     path('v1/consultant/assignments/', PMConsultantAssignmentsView.as_view(), name='consultant-assignments'),
     path('v1/consultant/tasks/', PMConsultantTasksView.as_view(), name='consultant-tasks'),
@@ -77,12 +83,17 @@ urlpatterns = [
     path('v1/consultant/projects/<int:pk>/documents/', PMConsultantProjectDocumentsView.as_view(), name='consultant-project-documents'),
     path('v1/directory/', PMDirectoryView.as_view(), name='pm-directory'),
     
+    # ── Client Requests ──
+    path('v1/client-requests/', PMClientRequestListView.as_view(), name='pm-client-request-list'),
+    path('v1/client-requests/<int:pk>/', PMClientRequestDetailView.as_view(), name='pm-client-request-detail'),
+
     # ── Consultants ──
     path('v1/consultants/', PMConsultantListView.as_view(), name='consultant-list'),
 
     # ── Projects ──
     path('v1/projects/', PMProjectListCreateView.as_view(), name='project-list-create'),
     path('v1/projects/<int:pk>/', PMProjectDetailView.as_view(), name='project-detail'),
+    path('v1/projects/<int:project_id>/request-consultant/', PMRequestConsultantView.as_view(), name='project-request-consultant'),
     path('v1/projects/<int:pk>/assignments/', PMProjectAssignmentsView.as_view(), name='project-assignments'),
     path('v1/projects/<int:pk>/submit/', PMProjectSubmitView.as_view(), name='project-submit'),
     path('v1/projects/<int:pk>/review/', PMProjectAdminReviewView.as_view(), name='project-review'),
@@ -90,12 +101,12 @@ urlpatterns = [
     path('v1/projects/<int:pk>/versions/', PMProjectVersionsView.as_view(), name='project-versions'),
     path('v1/projects/<int:pk>/documents/', PMProjectDocumentUploadView.as_view(), name='project-documents'),
 
-    # ── Tasks ──
+    path('v1/tasks/', PMAllTasksListView.as_view(), name='all-tasks-list'),
     path('v1/projects/<int:project_pk>/tasks/', PMTaskListCreateView.as_view(), name='task-list-create'),
-    path('v1/tasks/<int:pk>/', PMTaskDetailView.as_view(), name='task-detail'),
-    path('v1/tasks/<int:pk>/submit-review/', PMTaskSubmitReviewView.as_view(), name='task-submit-review'),
-    path('v1/tasks/<int:pk>/review/', PMTaskReviewView.as_view(), name='task-review'),
-    path('v1/tasks/<int:pk>/complete/', PMTaskCompleteView.as_view(), name='task-complete'),
+    path('v1/tasks/<str:pk>/', PMTaskDetailView.as_view(), name='task-detail'),
+    path('v1/tasks/<str:pk>/submit-review/', PMTaskSubmitReviewView.as_view(), name='task-submit-review'),
+    path('v1/tasks/<str:pk>/review/', PMTaskReviewView.as_view(), name='task-review'),
+    path('v1/tasks/<str:pk>/complete/', PMTaskCompleteView.as_view(), name='task-complete'),
 
     # ── Consultant Matching ──
     path('v1/projects/<int:pk>/match-consultants/', PMConsultantMatchView.as_view(), name='match-consultants'),

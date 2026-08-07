@@ -22,6 +22,10 @@ class BillingOverviewView(APIView):
     permission_classes = []  # Temporarily disabled for testing
     
     def get(self, request):
+        user_role = request.user.admin_profile.role
+        if user_role.name != "super_admin":
+            return Response({"error": "Insufficient permissions. Only Super Admins can view overall platform billing metrics."}, status=403)
+
         now = timezone.now()
         last_30_days = now - timedelta(days=30)
         last_90_days = now - timedelta(days=90)

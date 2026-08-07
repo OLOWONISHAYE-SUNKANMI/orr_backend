@@ -1052,3 +1052,44 @@ class LivingSystemsPageContent(Audit):
     def __str__(self):
         title_text = self.hero_title.get('content', '') if isinstance(self.hero_title, dict) else str(self.hero_title)
         return f"Living Systems - {title_text}"
+
+class CustomLandingPage(Audit):
+    """Dynamic custom landing pages"""
+    
+    title = models.CharField(max_length=200, help_text="Internal name for this landing page")
+    slug = models.SlugField(max_length=200, unique=True)
+    
+    # Hero Section
+    hero_title = RichTextField(default={"content": "Welcome", "format": "html"})
+    hero_subtitle = RichTextField(default={"content": "Discover our services", "format": "html"}, blank=True)
+    hero_image = models.URLField(max_length=500, blank=True)
+    
+    # Content Sections (Flexible)
+    section_1_title = RichTextField(default={"content": "", "format": "html"}, blank=True)
+    section_1_content = RichTextField(default={"content": "", "format": "html"}, blank=True)
+    
+    section_2_title = RichTextField(default={"content": "", "format": "html"}, blank=True)
+    section_2_content = RichTextField(default={"content": "", "format": "html"}, blank=True)
+    
+    section_3_title = RichTextField(default={"content": "", "format": "html"}, blank=True)
+    section_3_content = RichTextField(default={"content": "", "format": "html"}, blank=True)
+    
+    # CTA Section
+    cta_title = RichTextField(default={"content": "Ready to get started?", "format": "html"}, blank=True)
+    cta_description = RichTextField(default={"content": "", "format": "html"}, blank=True)
+    cta_button_text = RichTextField(default={"content": "Get Started", "format": "html"}, blank=True)
+    cta_button_link = models.CharField(max_length=500, blank=True)
+    
+    # SEO
+    meta_title = RichTextField(default={"content": "", "format": "html"}, blank=True)
+    meta_description = RichTextField(default={"content": "", "format": "html"}, blank=True)
+    
+    is_active = models.BooleanField(default=True)
+    is_published = models.BooleanField(default=False)
+    
+    class Meta:
+        verbose_name = "Custom Landing Page"
+        verbose_name_plural = "Custom Landing Pages"
+    
+    def __str__(self):
+        return self.title

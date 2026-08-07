@@ -15,6 +15,7 @@ class DashboardStatsSerializer(serializers.Serializer):
     ai_chat_sessions = serializers.IntegerField()
     escalation_rate = serializers.FloatField()
     most_used_resources = serializers.ListField()
+    pending_technical_feedback = serializers.IntegerField(required=False)
 
 
 class QuickClientSerializer(serializers.ModelSerializer):

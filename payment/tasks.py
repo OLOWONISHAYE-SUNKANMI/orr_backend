@@ -138,6 +138,13 @@ def handle_stripe_event(self, event: dict):
                 )
                 logger.info("Subscription activated: %s", subscription_id)
 
+                # Process document unlocks
+                try:
+                    from admin_portal.services import DocumentAccessService
+                    DocumentAccessService.process_document_unlocks_for_payment(user, session_id)
+                except Exception as doc_err:
+                    logger.error("Failed to process document unlocks for session %s: %s", session_id, doc_err)
+
                 # Send branded payment success email (16-payment-success)
                 try:
                     from admin_portal.orr_email_service import ORREmailService
@@ -375,6 +382,13 @@ def handle_stripe_event(self, event: dict):
                         "users": 1,
                     },
                 )
+
+                if normalized_event == "payment_succeeded":
+                    try:
+                        from admin_portal.services import DocumentAccessService
+                        DocumentAccessService.process_document_unlocks_for_payment(subscription.user, invoice_id)
+                    except Exception as doc_err:
+                        logger.error("Failed to process document unlocks for invoice %s: %s", invoice_id, doc_err)
 
                 logger.info("Invoice processed: %s", invoice_id)
                 return

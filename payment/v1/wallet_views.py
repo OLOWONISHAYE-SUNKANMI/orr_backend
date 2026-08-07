@@ -139,20 +139,53 @@ class PayWithWalletView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        plan_id = request.data.get('plan_id') or request.data.get('invoice_id')
-        if not plan_id:
-            return Response({"error": "Plan ID or Invoice ID is required"}, status=400)
+        invoice_id = request.data.get('invoice_id') or request.data.get('plan_id')
+        if not invoice_id:
+            return Response({"error": "Invoice ID or Plan ID is required"}, status=400)
 
+        wallet, _ = Wallet.objects.get_or_create(owner=request.user)
+
+        # 1. Check if paying an existing Invoice
+        inv = Invoice.objects.filter(Q(id=invoice_id) | Q(stripe_invoice_id=str(invoice_id)), user=request.user).first()
+        if inv:
+            if inv.status == 'paid':
+                return Response({"status": "success", "message": "Invoice is already paid"})
+            if wallet.balance < inv.amount:
+                return Response({"error": f"Insufficient wallet balance. Balance: ${wallet.balance}, Invoice: ${inv.amount}"}, status=400)
+
+            Transaction.objects.create(
+                wallet=wallet,
+                amount=inv.amount,
+                transaction_type='deduction',
+                description=f"Payment for Invoice #{inv.stripe_invoice_id}"
+            )
+            inv.status = 'paid'
+            inv.save()
+
+            try:
+                from admin_portal.orr_email_service import ORREmailService
+                ORREmailService.send_invoice_paid(
+                    recipient_email=request.user.email,
+                    invoice_id=inv.stripe_invoice_id,
+                    total_amount=f"USD {inv.amount}",
+                    receipt_url=f"https://orr.solutions/account/invoices/{inv.id}"
+                )
+            except Exception as e:
+                logger.error(f"Failed to send invoice paid email: {e}")
+
+            return Response({
+                "status": "success",
+                "message": "Invoice paid successfully via wallet"
+            })
+
+        # 2. Fallback: PricingPlan subscription payment
         try:
-            plan = PricingPlan.objects.get(id=plan_id)
-            wallet, _ = Wallet.objects.get_or_create(owner=request.user)
-            
+            plan = PricingPlan.objects.get(id=invoice_id)
             plan_amount = Decimal(plan.amount) / Decimal(100)
             
             if wallet.balance < plan_amount:
                 return Response({"error": "Insufficient wallet balance"}, status=400)
             
-            # Transaction.objects.create will automatically deduct balance in its save() method
             Transaction.objects.create(
                 wallet=wallet,
                 amount=plan_amount,
@@ -164,7 +197,6 @@ class PayWithWalletView(APIView):
             existing_sub = Subscription.objects.filter(user=request.user, plan=plan).first()
             stripe_sub_id = existing_sub.stripe_subscription_id if existing_sub and existing_sub.stripe_subscription_id else f"wallet_sub_{uuid.uuid4().hex[:16]}"
 
-            # Update/Create subscription
             Subscription.objects.update_or_create(
                 user=request.user,
                 plan=plan,

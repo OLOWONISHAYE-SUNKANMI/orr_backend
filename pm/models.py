@@ -138,6 +138,11 @@ class PMProject(StateMachineMixin, Audit):
         related_name='pm_managed_projects',
         help_text="The PM responsible for this project."
     )
+    source_ticket = models.ForeignKey(
+        'admin_portal.Ticket', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='resulting_projects',
+        help_text="The client request/ticket this project originated from."
+    )
 
     # ── Project Basics ──
     title = models.CharField(max_length=300)

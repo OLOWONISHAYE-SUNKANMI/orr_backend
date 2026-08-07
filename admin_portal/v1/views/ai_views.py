@@ -245,6 +245,9 @@ class ClientInsightsView(APIView):
             total_meetings=total_meetings,
             total_tickets=total_tickets,
             total_documents=total_documents,
+            role=client_obj.role,
+            internal_notes=client_obj.internal_notes,
+            secondary_pillars=client_obj.secondary_pillars,
         )
 
         return Response(ClientInsightsResponseSerializer(result).data)

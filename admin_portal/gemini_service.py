@@ -77,6 +77,66 @@ Never fabricate specific legal, financial, or regulatory advice — always recom
 # ---------------------------------------------------------------------------
 
 
+def generate_text(prompt: str, system_context: str = "") -> str:
+    """
+    Generate general text using Gemini AI model with fallback handling.
+    """
+    client = _get_client()
+    if not client:
+        logger.warning("Gemini client unavailable for generate_text")
+        return ""
+
+    full_context = f"{ORR_SYSTEM_CONTEXT}\n\n{system_context}".strip() if system_context else ORR_SYSTEM_CONTEXT
+
+    try:
+        response = client.models.generate_content(
+            model=MODEL_ID,
+            contents=prompt,
+            config={
+                "system_instruction": full_context,
+                "temperature": 0.7,
+            }
+        )
+        return response.text.strip() if response and hasattr(response, 'text') else ""
+    except Exception as e:
+        logger.error(f"Gemini generate_text failed: {e}")
+        return ""
+
+
+class GeminiService:
+    """
+    Class interface for Gemini AI Services.
+    Enables instantiation (gemini = GeminiService()) and method invocation across views.
+    """
+    def generate_text(self, prompt: str, system_context: str = "") -> str:
+        return generate_text(prompt, system_context)
+
+    def generate_smart_reply(self, *args, **kwargs):
+        return generate_smart_reply(*args, **kwargs)
+
+    def generate_project_proposal(self, *args, **kwargs):
+        return generate_project_proposal(*args, **kwargs)
+
+    def generate_meeting_prep(self, *args, **kwargs):
+        return generate_meeting_prep(*args, **kwargs)
+
+    def summarize_document(self, *args, **kwargs):
+        return summarize_document(*args, **kwargs)
+
+    def generate_client_insights(self, *args, **kwargs):
+        return generate_client_insights(*args, **kwargs)
+
+    def analyze_onboarding(self, *args, **kwargs):
+        return analyze_onboarding(*args, **kwargs)
+
+    def chat(self, *args, **kwargs):
+        return chat(*args, **kwargs)
+
+    def generate_dashboard_insights(self, *args, **kwargs):
+        return generate_dashboard_insights(*args, **kwargs)
+
+
+
 def generate_smart_reply(
     ticket_subject: str,
     ticket_description: str,
@@ -110,7 +170,7 @@ def generate_smart_reply(
 
 You are responding to a client support ticket. Generate a professional, empathetic, and helpful acknowledgement reply.
 
-{chr(10).join(context_parts)}
+{" | ".join(context_parts)}
 
 Ticket Subject: {ticket_subject}
 Ticket Description: {ticket_description}
@@ -129,10 +189,66 @@ Requirements:
             model=MODEL_ID,
             contents=prompt,
         )
-        return response.text.strip()
+        return response.text
     except Exception as e:
-        logger.error(f"Gemini smart reply failed: {e}")
+        logger.error(f"Error in generate_smart_reply: {e}")
         return _fallback_ticket_reply(client_name)
+
+
+def generate_project_proposal(
+    project_scope: str,
+    project_deliverables: str,
+    consultant_feedback: str,
+    client_name: str,
+    industry: str
+) -> str:
+    """
+    Generate a formal project proposal / draft document based on PM scope and Consultant feedback.
+    """
+    client = _get_client()
+    if not client:
+        return "Proposal could not be generated. AI service unavailable."
+
+    prompt = f"""{ORR_SYSTEM_CONTEXT}
+
+Task: Generate a formal project proposal based on the following details.
+
+Client: {client_name}
+Industry: {industry}
+
+Project Scope (from PM):
+{project_scope}
+
+Project Deliverables (from PM):
+{project_deliverables}
+
+Consultant Feedback / Approach:
+{consultant_feedback}
+
+Format the output as a professional business proposal in markdown format. 
+Include the following sections:
+- Executive Summary
+- Project Objectives & Scope
+- Proposed Technical Approach (incorporating the consultant's feedback)
+- Deliverables & Timeline
+- Investment / Cost Estimate (based on consultant feedback if provided)
+
+Keep the tone highly professional, aligning with ORR Solutions' standards.
+"""
+
+    try:
+        response = client.models.generate_content(
+            model=MODEL_ID,
+            contents=prompt,
+        )
+        return response.text
+    except Exception as e:
+        logger.error(f"Error in generate_project_proposal: {e}")
+        return "Error generating proposal document."
+
+
+def _fallback_ticket_reply(client_name: str) -> str:
+    return f"Dear {client_name or 'Client'}, thank you for contacting ORR Solutions. We have received your query and a specialist will get back to you shortly."
 
 
 def generate_meeting_prep(
@@ -257,6 +373,9 @@ def generate_client_insights(
     total_tickets: int = 0,
     total_documents: int = 0,
     recent_activity: str = "",
+    role: str = "",
+    internal_notes: str = "",
+    secondary_pillars: list = None,
 ) -> Dict:
     """
     Generate AI-powered insights about a client's journey and engagement.
@@ -267,22 +386,27 @@ def generate_client_insights(
     if not client:
         return _fallback_client_insights()
 
+    secondary_pillars_str = ", ".join(secondary_pillars) if secondary_pillars else "None"
+
     prompt = f"""{ORR_SYSTEM_CONTEXT}
 
 Analyze the following client engagement data and provide actionable insights.
 
 Client: {client_name} ({client_company})
+Role/Position: {role or 'Not specified'}
 Current Stage: {stage}
 Primary Pillar: {pillar}
+Secondary Pillars: {secondary_pillars_str}
 Total Meetings: {total_meetings}
 Total Tickets: {total_tickets}
 Total Documents: {total_documents}
 Recent Activity: {recent_activity or 'No recent activity recorded'}
+Internal Notes/Context: {internal_notes or 'No specific internal notes provided'}
 
-Return a JSON object with these exact keys:
+Using this comprehensive personal, company, and engagement data, return a JSON object with these exact keys:
 - "health_score": A score from 1-100 representing overall engagement health (integer)
-- "insights": Array of 2-3 observations about the client's engagement pattern (array of strings)
-- "recommendations": Array of 2-3 actionable next steps for the ORR team (array of strings)
+- "insights": Array of 2-3 observations about the client's engagement pattern based on their role, company, and notes (array of strings)
+- "recommendations": Array of 2-3 actionable next steps for the ORR team to nurture this client (array of strings)
 - "risk_flags": Array of 0-2 potential concerns to address (array of strings)
 
 Return ONLY valid JSON, no markdown formatting."""

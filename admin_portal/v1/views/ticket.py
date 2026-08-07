@@ -45,6 +45,13 @@ class TicketListView(generics.ListCreateAPIView):
             messages_count=Count("messages")
         )
 
+        try:
+            user_role = self.request.user.admin_profile.role
+            if user_role and user_role.name != "super_admin" and not user_role.can_view_all_clients:
+                queryset = queryset.filter(client__assigned_admin=self.request.user)
+        except AttributeError:
+            pass
+
         # Search functionality
         search = self.request.query_params.get("search", None)
         if search:
@@ -113,8 +120,17 @@ class TicketListView(generics.ListCreateAPIView):
 class TicketDetailView(generics.RetrieveUpdateAPIView):
     """Get and update ticket details"""
 
-    queryset = Ticket.objects.select_related("client__user", "assigned_to").all()
     permission_classes = [CanManageTickets]
+
+    def get_queryset(self):
+        queryset = Ticket.objects.select_related("client__user", "assigned_to").all()
+        try:
+            user_role = self.request.user.admin_profile.role
+            if user_role and user_role.name != "super_admin" and not user_role.can_view_all_clients:
+                queryset = queryset.filter(client__assigned_admin=self.request.user)
+        except AttributeError:
+            pass
+        return queryset
 
     def get_serializer_class(self):
         if self.request.method == "GET":

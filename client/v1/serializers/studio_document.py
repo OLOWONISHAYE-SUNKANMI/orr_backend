@@ -16,6 +16,9 @@ class StudioDocumentListSerializer(serializers.ModelSerializer):
             'type',
             'folder_id',
             'owner_id',
+            'is_ai_generated',
+            'is_draft',
+            'is_ai_reviewed',
             'created_at',
             'updated_at',
         ]
@@ -37,6 +40,9 @@ class StudioDocumentDetailSerializer(serializers.ModelSerializer):
             'folder_id',
             'owner_id',
             'content',
+            'is_ai_generated',
+            'is_draft',
+            'is_ai_reviewed',
             'created_at',
             'updated_at',
         ]
@@ -93,10 +99,13 @@ class StudioDocumentUpdateSerializer(serializers.Serializer):
 
     content = serializers.JSONField(required=False)
     title = serializers.CharField(max_length=500, required=False)
+    is_ai_generated = serializers.BooleanField(required=False)
+    is_draft = serializers.BooleanField(required=False)
+    is_ai_reviewed = serializers.BooleanField(required=False)
 
     def validate(self, attrs):
         if not attrs:
-            raise serializers.ValidationError("At least one of 'content' or 'title' must be provided.")
+            raise serializers.ValidationError("At least one field to update must be provided.")
         return attrs
 
     def update(self, instance, validated_data):
@@ -104,5 +113,11 @@ class StudioDocumentUpdateSerializer(serializers.Serializer):
             instance.content = validated_data['content']
         if 'title' in validated_data:
             instance.title = validated_data['title']
+        if 'is_ai_generated' in validated_data:
+            instance.is_ai_generated = validated_data['is_ai_generated']
+        if 'is_draft' in validated_data:
+            instance.is_draft = validated_data['is_draft']
+        if 'is_ai_reviewed' in validated_data:
+            instance.is_ai_reviewed = validated_data['is_ai_reviewed']
         instance.save()
         return instance

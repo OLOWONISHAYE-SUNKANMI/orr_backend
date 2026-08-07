@@ -51,6 +51,13 @@ class MeetingListView(generics.ListCreateAPIView):
     def get_queryset(self):
         queryset = Meeting.objects.select_related("client__user", "host").all()
         
+        try:
+            user_role = self.request.user.admin_profile.role
+            if user_role and user_role.name != "super_admin" and not user_role.can_view_all_clients:
+                queryset = queryset.filter(client__assigned_admin=self.request.user)
+        except AttributeError:
+            pass
+        
         # Debug: Log total meetings count
         print(f"Total meetings in database: {queryset.count()}")
 
@@ -142,8 +149,17 @@ class MeetingListView(generics.ListCreateAPIView):
 class MeetingDetailView(generics.RetrieveUpdateAPIView):
     """Get and update meeting details"""
 
-    queryset = Meeting.objects.select_related("client__user", "host").all()
     permission_classes = [CanManageMeetings]
+
+    def get_queryset(self):
+        queryset = Meeting.objects.select_related("client__user", "host").all()
+        try:
+            user_role = self.request.user.admin_profile.role
+            if user_role and user_role.name != "super_admin" and not user_role.can_view_all_clients:
+                queryset = queryset.filter(client__assigned_admin=self.request.user)
+        except AttributeError:
+            pass
+        return queryset
 
     def get_serializer_class(self):
         if self.request.method == "GET":

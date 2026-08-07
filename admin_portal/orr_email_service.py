@@ -39,26 +39,29 @@ class ORREmailService:
 
     @staticmethod
     def _send(subject: str, recipient: str, html: str, plain_text: str = ''):
-        """Send an email with HTML content via Django SMTP."""
-        recipients = [recipient] if isinstance(recipient, str) else recipient
-        success_count = 0
-        
-        for rec in recipients:
-            try:
-                send_mail(
-                    subject=subject,
-                    message=plain_text or subject,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[rec],
-                    html_message=html,
-                    fail_silently=False,
-                )
-                logger.info(f"ORR Email sent via SMTP: '{subject}' → {rec}")
-                success_count += 1
-            except Exception as smtp_e:
-                logger.error(f"ORR Email failed: '{subject}' → {rec}: {smtp_e}")
+        """Send an email with HTML content via Django SMTP asynchronously in background thread."""
+        import threading
 
-        return success_count > 0
+        def send_async():
+            recipients = [recipient] if isinstance(recipient, str) else recipient
+            for rec in recipients:
+                try:
+                    send_mail(
+                        subject=subject,
+                        message=plain_text or subject,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[rec],
+                        html_message=html,
+                        fail_silently=False,
+                    )
+                    logger.info(f"ORR Email sent via SMTP: '{subject}' → {rec}")
+                except Exception as smtp_e:
+                    logger.error(f"ORR Email failed: '{subject}' → {rec}: {smtp_e}")
+
+        thread = threading.Thread(target=send_async)
+        thread.daemon = True
+        thread.start()
+        return True
 
     # ──────────────────────────────────────────────
     # 1. AUTHENTICATION & ONBOARDING
@@ -448,6 +451,15 @@ class ORREmailService:
             'meeting_link': meeting_link,
         })
         return cls._send(f'Meeting Reminder: {meeting_subject} - ORR Solutions', recipient_email, html)
+
+    @classmethod
+    def send_host_joined(cls, recipient_email: str, meeting_subject: str, meeting_link: str):
+        """29b — Host joined notification."""
+        html = cls._render('29b-host-joined.html', {
+            'meeting_subject': meeting_subject,
+            'meeting_link': meeting_link,
+        })
+        return cls._send(f'Host has joined: {meeting_subject} - ORR Solutions', recipient_email, html)
 
     @classmethod
     def send_meeting_rescheduled(cls, recipient_email: str, meeting_subject: str,

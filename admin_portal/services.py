@@ -127,6 +127,47 @@ class NotificationService:
             logger.error(f"Failed to send meeting notification: {e}")
 
 
+class DocumentAccessService:
+    """Handles unlocking of client documents based on payments or other rules"""
+
+    @staticmethod
+    def process_document_unlocks_for_payment(user, payment_reference: str):
+        """Unlock documents tied to a payment reference and notify the client."""
+        from .models import ClientDocument, Client
+        from .orr_email_service import ORREmailService
+
+        try:
+            client = Client.objects.get(user=user)
+        except Client.DoesNotExist:
+            return
+
+        documents = ClientDocument.objects.filter(
+            client=client,
+            access_rule_type__in=['invoice_linked', 'payment_linked'],
+            access_rule_linked_id=payment_reference
+        )
+
+        for doc in documents:
+            # Unlock the document
+            doc.access_rule_type = 'immediate'
+            doc.save(update_fields=['access_rule_type', 'updated_at'])
+
+            # Send notification
+            try:
+                document_url = f"https://orr.solutions/portal/documents/{doc.id}"
+                ORREmailService.send_document_access(
+                    recipient_email=user.email,
+                    document_name=doc.title,
+                    sharer_name="ORR Solutions Billing",
+                    permission_level="View",
+                    document_url=document_url,
+                    personal_note="Thank you for your payment. This document is now unlocked."
+                )
+                logger.info(f"Sent unlock notification for document {doc.id} to {user.email}")
+            except Exception as e:
+                logger.error(f"Failed to send unlock notification for document {doc.id}: {e}")
+
+
 class AnalyticsService:
     """Advanced analytics calculations"""
 

@@ -82,6 +82,11 @@ class WalletTransactionLogsView(ListAPIView):
     def get_queryset(self):
         queryset = Invoice.objects.all().order_by('-created_at')
         
+        user_role = self.request.user.admin_profile.role
+        if user_role.name != "super_admin" and not user_role.can_view_all_clients:
+            assigned_users = Client.objects.filter(assigned_admin=self.request.user).values_list('user_id', flat=True)
+            queryset = queryset.filter(user_id__in=assigned_users)
+            
         # Apply filters
         user_id = self.request.query_params.get('user_id')
         status = self.request.query_params.get('status')
@@ -408,10 +413,13 @@ class WalletListView(APIView):
     """List all client wallets and balances"""
     
     permission_classes = []  # Temporarily disabled for testing
-    
     def get(self, request):
+        user_role = request.user.admin_profile.role
         clients = Client.objects.select_related('user', 'user__wallet').all()
         
+        if user_role.name != "super_admin" and not user_role.can_view_all_clients:
+            clients = clients.filter(assigned_admin=request.user)
+
         wallet_data = []
         for client in clients:
             # Prioritize the Wallet model balance as source of truth

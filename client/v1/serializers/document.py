@@ -27,7 +27,7 @@ class ClientDocumentSerializer(serializers.ModelSerializer):
                 from decouple import config
                 url = obj.document.url
                 if url.startswith('/'):
-                    api_url = config('BACKEND_URL', default='https://orr-backend-105825824472.asia-southeast2.run.app')
+                    api_url = config('BACKEND_URL', default='http://localhost:8000')
                     return f"{api_url.rstrip('/')}{url}"
                 return url
             except Exception:

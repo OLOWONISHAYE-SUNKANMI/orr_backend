@@ -25,25 +25,7 @@ class Command(BaseCommand):
             }
         )
         
-        # Create Content Editor role
-        content_editor, created = AdminRole.objects.get_or_create(
-            name='content_editor',
-            defaults={
-                'description': 'Can create and edit website content',
-                'can_manage_users': False,
-                'can_view_all_clients': False,
-                'can_edit_clients': False,
-                'can_manage_tickets': False,
-                'can_manage_meetings': False,
-                'can_create_content': True,
-                'can_publish_content': False,
-                'can_view_analytics': False,
-                'can_view_billing': False,
-                'can_manage_settings': False,
-                'can_view_ai_logs': False,
-            }
-        )
-        
+
         # Create Admin role
         admin, created = AdminRole.objects.get_or_create(
             name='admin',

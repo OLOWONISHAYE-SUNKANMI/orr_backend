@@ -1,7 +1,13 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
 
-from admin_portal.models import AdminProfile, AdminRole, AuditLog, SystemSettings
+from admin_portal.models import AdminProfile, AdminRole, AuditLog, SystemSettings, LetterheadTemplate
+
+
+class LetterheadTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LetterheadTemplate
+        fields = '__all__'
 
 
 class SystemSettingsSerializer(serializers.ModelSerializer):

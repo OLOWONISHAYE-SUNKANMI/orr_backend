@@ -258,9 +258,40 @@ class MeetingChangeStatusView(APIView):
                 "status_display": new_status_display,
                 "message": f"Status changed from {old_status_display} → {new_status_display}",
             },
-            status=status.HTTP_200_OK,
         )
 
+
+@extend_schema(
+    tags=["scheduling"],
+)
+class MeetingHostJoinedView(APIView):
+    """
+    Endpoint for when the host joins a meeting.
+    POST /api/scheduling/meetings/<pk>/host-joined/
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        meeting = get_object_or_404(Meeting, pk=pk)
+        
+        # Only allow hosts or superadmins to trigger this
+        if request.user != meeting.host and not request.user.is_superuser:
+            raise PermissionDenied("Only the meeting host or admin can trigger this.")
+            
+        try:
+            from admin_portal.orr_email_service import ORREmailService
+            if meeting.client and meeting.client.user.email:
+                ORREmailService.send_host_joined(
+                    recipient_email=meeting.client.user.email,
+                    meeting_subject=f"{meeting.get_meeting_type_display()} with ORR Solutions",
+                    meeting_link=meeting.meeting_link or "Link will be provided",
+                )
+                logger.info(f"Host joined notification sent for meeting {meeting.id}")
+                
+            return Response({"success": True, "message": "Client notified that host joined."})
+        except Exception as e:
+            logger.error(f"Failed to send host joined notification: {e}")
+            return Response({"error": "Failed to send notification"}, status=500)
 
 @extend_schema(
     tags=["scheduling"],

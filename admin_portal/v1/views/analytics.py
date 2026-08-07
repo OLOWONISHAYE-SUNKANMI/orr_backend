@@ -28,17 +28,28 @@ class AnalyticsOverviewView(APIView):
         last_7_days = now - timedelta(days=7)
         last_30_days = now - timedelta(days=30)
         last_90_days = now - timedelta(days=90)
+        
+        user_role = request.user.admin_profile.role
+        
+        client_qs = Client.objects.all()
+        ticket_qs = Ticket.objects.all()
+        meeting_qs = Meeting.objects.all()
+        
+        if user_role.name != "super_admin" and not user_role.can_view_all_clients:
+            client_qs = client_qs.filter(assigned_admin=request.user)
+            ticket_qs = ticket_qs.filter(client__assigned_admin=request.user)
+            meeting_qs = meeting_qs.filter(client__assigned_admin=request.user)
 
         # Client portal usage
         portal_usage = {
-            "total_clients": Client.objects.count(),
-            "active_clients_7d": Client.objects.filter(
+            "total_clients": client_qs.count(),
+            "active_clients_7d": client_qs.filter(
                 user__last_login__gte=last_7_days
             ).count(),
-            "active_clients_30d": Client.objects.filter(
+            "active_clients_30d": client_qs.filter(
                 user__last_login__gte=last_30_days
             ).count(),
-            "new_clients_30d": Client.objects.filter(
+            "new_clients_30d": client_qs.filter(
                 created_at__gte=last_30_days
             ).count(),
         }
@@ -67,17 +78,17 @@ class AnalyticsOverviewView(APIView):
 
         # Ticket analytics
         ticket_analytics = {
-            "total_tickets": Ticket.objects.count(),
-            "tickets_7d": Ticket.objects.filter(created_at__gte=last_7_days).count(),
-            "tickets_30d": Ticket.objects.filter(created_at__gte=last_30_days).count(),
+            "total_tickets": ticket_qs.count(),
+            "tickets_7d": ticket_qs.filter(created_at__gte=last_7_days).count(),
+            "tickets_30d": ticket_qs.filter(created_at__gte=last_30_days).count(),
             "avg_resolution_time": self._calculate_avg_resolution_time(),
             "tickets_by_status": dict(
-                Ticket.objects.values("status")
+                ticket_qs.values("status")
                 .annotate(count=Count("id"))
                 .values_list("status", "count")
             ),
             "tickets_by_priority": dict(
-                Ticket.objects.values("priority")
+                ticket_qs.values("priority")
                 .annotate(count=Count("id"))
                 .values_list("priority", "count")
             ),
@@ -97,16 +108,16 @@ class AnalyticsOverviewView(APIView):
 
         # Meeting analytics
         meeting_analytics = {
-            "total_meetings": Meeting.objects.count(),
-            "meetings_requested_30d": Meeting.objects.filter(
+            "total_meetings": meeting_qs.count(),
+            "meetings_requested_30d": meeting_qs.filter(
                 created_at__gte=last_30_days
             ).count(),
-            "meetings_completed_30d": Meeting.objects.filter(
+            "meetings_completed_30d": meeting_qs.filter(
                 status="completed", updated_at__gte=last_30_days
             ).count(),
             "avg_confirmation_time": self._calculate_avg_confirmation_time(),
             "meetings_by_type": dict(
-                Meeting.objects.values("meeting_type")
+                meeting_qs.values("meeting_type")
                 .annotate(count=Count("id"))
                 .values_list("meeting_type", "count")
             ),

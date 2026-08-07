@@ -395,6 +395,24 @@ def notify_on_project_status_change(sender, instance, created, **kwargs):
                     reference_id=instance.project_id,
                     admin_link=f"https://admin.orr.solutions/projects/{instance.project_id}"
                 )
+                
+            # If PM checked "Send Summary to Client" or "Client Approval Needed", notify client
+            if instance.client and instance.client.user and instance.client.user.email:
+                if instance.send_summary_to_client or instance.client_approval_needed:
+                    SystemNotification.objects.create(
+                        notification_type='project_submitted',
+                        title=f'Project Scope Created: {instance.project_id}',
+                        message=f'A new project scope for "{instance.title}" has been created and is pending review.',
+                        recipient=instance.client.user,
+                    )
+                    ORREmailService.send_status_update(
+                        recipient_email=instance.client.user.email,
+                        form_name="Project Scope Overview",
+                        reference_id=instance.project_id,
+                        current_status="Draft Scope Created",
+                        progress_percentage="10%",
+                        tracking_link=f"https://orr.solutions/dashboard/projects/{instance.project_id}"
+                    )
 
         # Admin requests PM clarification
         elif new_status == 'needs_pm_clarification' and instance.assigned_pm:

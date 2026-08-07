@@ -308,6 +308,8 @@ class ContentVersionsView(APIView):
             )
 
 
+from admin_portal.permissions import IsSuperAdmin
+
 @extend_schema(
     tags=["Content Management"],
     summary="Perform bulk content actions",
@@ -316,7 +318,7 @@ class ContentVersionsView(APIView):
 class ContentBulkActionsView(APIView):
     """Bulk actions for content management"""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSuperAdmin]
 
     def post(self, request):
         action = request.data.get("action")

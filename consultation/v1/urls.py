@@ -13,7 +13,8 @@ from .views import (
     ConsultantMeetingViewSet,
     ConsultantNotificationViewSet,
     ConsultantDocumentListView,
-    ConsultantDocumentDetailView
+    ConsultantDocumentDetailView,
+    ConsultantJobAcceptView
 )
 
 job_router = DefaultRouter()
@@ -42,6 +43,8 @@ urlpatterns = [
     
     path('<str:consultant_id>/documents/', ConsultantDocumentListView.as_view(), name='consultant-documents'),
     path('<str:consultant_id>/documents/<int:pk>/', ConsultantDocumentDetailView.as_view(), name='consultant-document-detail'),
+    
+    path('jobs/<int:job_id>/accept/', ConsultantJobAcceptView.as_view(), name='consultant-job-accept'),
     
     path('', include(invoice_router.urls)),
     path('<str:consultant_id>/', include(job_router.urls)),
