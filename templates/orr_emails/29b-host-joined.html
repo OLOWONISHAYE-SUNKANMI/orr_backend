@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #ffffff; padding: 30px; border-radius: 8px; }
+        .header { text-align: center; border-bottom: 2px solid #0EC277; padding-bottom: 20px; margin-bottom: 20px; }
+        .btn { display: inline-block; background-color: #0EC277; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Meeting Host has Joined</h2>
+        </div>
+        <p>Hello,</p>
+        <p>The host for your meeting <strong>{{meeting_subject}}</strong> has just joined.</p>
+        <p>Please click the button below to join the meeting now:</p>
+        <a href="{{meeting_link}}" class="btn">Join Meeting</a>
+        <p style="margin-top: 30px; font-size: 12px; color: #777;">ORR Solutions Team</p>
+    </div>
+</body>
+</html>

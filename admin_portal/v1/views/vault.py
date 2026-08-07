@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.db.models import Q, Count
 
 from admin_portal.models import ClientDocument, VaultFolder, Client
+from admin_portal.throttles import DocumentDownloadThrottle
 from drf_spectacular.utils import extend_schema
 
 
@@ -65,6 +66,7 @@ class VaultDocumentSerializer(serializers.ModelSerializer):
             'id', 'name', 'title', 'description', 'link', 'document_type', 'document_source',
             'google_drive_id', 'category', 'visibility', 'folder', 'folder_id',
             'file_size', 'client', 'client_name', 'project', 'created_at', 'updated_at',
+            'is_ai_generated', 'is_draft', 'is_ai_reviewed',
         ]
 
     def get_link(self, obj):
@@ -106,6 +108,7 @@ class VaultDocumentCreateSerializer(serializers.ModelSerializer):
             'id', 'title', 'description', 'category', 'document',
             'document_type', 'document_source', 'google_drive_id',
             'visibility', 'client', 'folder',
+            'is_ai_generated', 'is_draft', 'is_ai_reviewed',
         ]
 
     def validate_client(self, value):
@@ -349,6 +352,15 @@ class VaultDocumentListView(APIView):
 
         docs = _build_document_queryset(docs)
 
+        search_query = request.query_params.get('search', None)
+        if search_query:
+            docs = docs.filter(
+                Q(title__icontains=search_query) |
+                Q(description__icontains=search_query) |
+                Q(category__icontains=search_query) |
+                Q(document_type__icontains=search_query)
+            ).distinct()
+
         # Pagination
         page_qs, pagination = _paginate(docs, request)
         serializer = VaultDocumentSerializer(page_qs, many=True, context={'request': request})
@@ -419,6 +431,7 @@ class VaultDocumentListView(APIView):
 @extend_schema(tags=["vault"])
 class VaultDocumentDetailView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [DocumentDownloadThrottle]
 
     def _get_doc(self, pk, user):
         try:
@@ -472,6 +485,44 @@ class VaultDocumentDetailView(APIView):
 
         doc.delete()
         return Response({"status": "success", "message": "Document deleted."}, status=status.HTTP_204_NO_CONTENT)
+
+
+class AdminDraftDocumentsView(APIView):
+    """
+    List AI generated documents that are waiting for Admin review.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from common.response import api_response
+        drafts = ClientDocument.objects.filter(is_ai_generated=True, is_draft=True)
+        data = [{
+            'id': d.id,
+            'title': d.title,
+            'client': d.client.user.get_full_name() if d.client and d.client.user else 'Unknown',
+            'created_at': d.created_at
+        } for d in drafts]
+        return Response(api_response(success=True, data=data))
+
+
+class AdminApproveDocumentView(APIView):
+    """
+    Approve an AI generated draft document to publish it.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, doc_id):
+        from common.response import api_response
+        try:
+            doc = ClientDocument.objects.get(id=doc_id, is_ai_generated=True, is_draft=True)
+        except ClientDocument.DoesNotExist:
+            return Response(api_response(success=False, error="Draft document not found", status_code=status.HTTP_404_NOT_FOUND))
+        
+        doc.is_draft = False
+        doc.is_ai_reviewed = True
+        doc.save()
+
+        return Response(api_response(success=True, message=f"Document {doc.title} approved successfully."))
 
 
 # ---------------------------------------------------------------------------
@@ -547,6 +598,11 @@ def batch_update_documents(request):
     docs = ClientDocument.objects.filter(pk__in=document_ids)
 
     if action == 'delete':
+        if not request.user.is_superuser:
+            return Response(
+                {"status": "error", "message": "Only Super Admins can perform bulk deletions."},
+                status=status.HTTP_403_FORBIDDEN
+            )
         count = docs.count()
         docs.delete()
         return Response({"status": "success", "message": f"Deleted {count} documents."})
@@ -561,3 +617,45 @@ def batch_update_documents(request):
             {"status": "error", "message": f"Unknown action: {action}"},
             status=status.HTTP_400_BAD_REQUEST
         )
+
+# ---------------------------------------------------------------------------
+# export_document_with_letterhead
+# ---------------------------------------------------------------------------
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@extend_schema(tags=["vault"])
+def export_document_with_letterhead(request, pk):
+    """
+    Export a document with a letterhead template injected.
+    Returns a URL to download the generated document.
+    """
+    from admin_portal.models import ClientDocument, LetterheadTemplate
+    from django.shortcuts import get_object_or_404
+    
+    doc = get_object_or_404(ClientDocument, pk=pk)
+    
+    # Ensure user has access
+    if not _is_admin(request.user) and getattr(doc.client, 'user', None) != request.user:
+        return Response({"status": "error", "message": "Access denied."}, status=status.HTTP_403_FORBIDDEN)
+        
+    template_id = request.query_params.get('template_id')
+    template = None
+    if template_id:
+        template = get_object_or_404(LetterheadTemplate, pk=template_id)
+    else:
+        # Fallback to default
+        template = LetterheadTemplate.objects.filter(is_default=True).first()
+        
+    # Mock letterhead injection logic
+    # In a real app, you would use Google Docs API, pdfkit, or ReportLab 
+    # to combine the document content with the template's header/footer images.
+    
+    template_name = template.name if template else "None"
+    
+    return Response({
+        "status": "success",
+        "message": "Document exported with letterhead",
+        "download_url": f"/media/exports/doc_{doc.id}_exported.pdf",
+        "injected_template": template_name
+    })

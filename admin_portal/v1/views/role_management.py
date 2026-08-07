@@ -136,16 +136,24 @@ class EditUserView(APIView):
             profile_data = request.data.get("profile", {})
             role_changed = False
             new_role_name = None
-            if "role_name" in profile_data:
-                role = AdminRole.objects.get(name=profile_data["role_name"])
-                if admin_profile.role != role:
-                    role_changed = True
-                    new_role_name = role.name
-                admin_profile.role = role
-            if "department" in profile_data:
-                admin_profile.department = profile_data["department"]
-            if "phone" in profile_data:
-                admin_profile.phone = profile_data["phone"]
+
+            role_input = profile_data.get("role_name") or profile_data.get("role") or request.data.get("role_name") or request.data.get("role")
+            if role_input:
+                role = None
+                if str(role_input).isdigit():
+                    role = AdminRole.objects.filter(id=role_input).first()
+                if not role:
+                    role = AdminRole.objects.filter(name=role_input).first()
+                if role:
+                    if admin_profile.role != role:
+                        role_changed = True
+                        new_role_name = role.name
+                    admin_profile.role = role
+
+            if "department" in profile_data or "department" in request.data:
+                admin_profile.department = profile_data.get("department") or request.data.get("department")
+            if "phone" in profile_data or "phone" in request.data:
+                admin_profile.phone = profile_data.get("phone") or request.data.get("phone")
             admin_profile.save()
 
             if role_changed and user.email:

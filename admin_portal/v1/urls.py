@@ -16,6 +16,7 @@ from .views import (
     client_profile,
     cms,
     cms_comprehensive,
+    landing_pages,
     compliance,
     consultation_metrics,
     content,
@@ -117,6 +118,32 @@ consultant_approvals_patterns = [
         "<int:pk>/action/",
         consultant_approvals.ConsultantApprovalActionView.as_view(),
         name="consultant-approval-action",
+    ),
+]
+
+from .views import consultant_directory
+
+# Consultant Directory URLs
+consultant_directory_patterns = [
+    path(
+        "",
+        consultant_directory.ConsultantDirectoryListView.as_view(),
+        name="consultant-directory-list",
+    ),
+    path(
+        "<int:pk>/",
+        consultant_directory.ConsultantDirectoryDetailView.as_view(),
+        name="consultant-directory-detail",
+    ),
+    path(
+        "sourcing/",
+        consultant_directory.ConsultantSourcingProtocolView.as_view(),
+        name="consultant-sourcing",
+    ),
+    path(
+        "jobs/<int:job_id>/assign/",
+        consultant_directory.ConsultantJobAssignView.as_view(),
+        name="consultant-job-assign",
     ),
 ]
 
@@ -340,6 +367,8 @@ ai_oversight_patterns = [
 # Settings & System Config URLs
 settings_patterns = [
     path("system/", settings.SystemSettingsView.as_view(), name="system-settings"),
+    path("letterhead-templates/", settings.LetterheadTemplateListView.as_view(), name="letterhead-template-list"),
+    path("letterhead-templates/<int:pk>/", settings.LetterheadTemplateDetailView.as_view(), name="letterhead-template-detail"),
     path("roles/", settings.AdminRoleListView.as_view(), name="admin-role-list"),
     path(
         "roles/<int:pk>/",
@@ -600,7 +629,25 @@ cms_patterns = [
     path("services-content/", cms_comprehensive.ServicesPageContentView.as_view(), name="cms-services-content"),
     path("resources-content/", cms_comprehensive.ResourcesBlogsPageContentView.as_view(), name="cms-resources-content"),
     path("legal-policy-content/", cms_comprehensive.LegalPolicyPageContentView.as_view(), name="cms-legal-policy-content"),
-    path("contact-content/", cms_comprehensive.ContactPageContentView.as_view(), name="cms-contact-content"),
+    path(
+        "cms/contact/",
+        cms_comprehensive.ContactPageContentView.as_view(),
+        name="cms-contact-content",
+    ),
+
+    # ── Custom Landing Pages ──
+    path(
+        "cms/landing-pages/",
+        landing_pages.CustomLandingPageListView.as_view(),
+        name="cms-landing-pages-list",
+    ),
+    path(
+        "cms/landing-pages/<slug:slug>/",
+        landing_pages.CustomLandingPageDetailView.as_view(),
+        name="cms-landing-pages-detail",
+    ),
+
+    # ── AI Content Oversight ──
     path("service-stages/<int:pk>/", cms_comprehensive.ServiceStageDetailView.as_view(), name="cms-service-stage-detail"),
     path("service-pillars/<int:pk>/", cms_comprehensive.ServicePillarDetailView.as_view(), name="cms-service-pillar-detail"),
     path("process-steps/<int:pk>/", cms_comprehensive.ProcessStepDetailView.as_view(), name="cms-process-step-detail"),
@@ -615,12 +662,15 @@ cms_patterns = [
 # Document Vault (Google Integration) URLs
 vault_patterns = [
     path("documents/", vault.VaultDocumentListView.as_view(), name="vault-documents-list"),
+    path("documents/drafts/", vault.AdminDraftDocumentsView.as_view(), name="vault-draft-documents"),
     path("documents/<int:pk>/", vault.VaultDocumentDetailView.as_view(), name="vault-document-detail"),
+    path("documents/<int:doc_id>/approve/", vault.AdminApproveDocumentView.as_view(), name="vault-document-approve"),
     path("documents/create-google-doc/", views_google.create_google_doc, name="vault-create-google-doc"),
     path("documents/batch-update/", vault.batch_update_documents, name="vault-documents-batch-update"),
     path("folders/", vault.VaultFolderListView.as_view(), name="vault-folders-list"),
     path("folders/<int:pk>/", vault.VaultFolderDetailView.as_view(), name="vault-folder-detail"),
     path("activity/", vault.VaultActivityListView.as_view(), name="vault-activity-list"),
+    path("documents/<int:pk>/export-letterhead/", vault.export_document_with_letterhead, name="vault-document-export-letterhead"),
 ]
 
 approval_queue_patterns = [
@@ -674,6 +724,14 @@ ai_patterns = [
     ),
 ]
 
+from .views import feedback
+# Technical Feedback URLs
+feedback_patterns = [
+    path("", feedback.TechnicalFeedbackView.as_view(), name="technical-feedback"),
+    path("<int:pk>/", feedback.TechnicalFeedbackDetailView.as_view(), name="technical-feedback-detail"),
+]
+
+
 urlpatterns = [
     path("vault/", include(vault_patterns)),
     path("auth/", include(auth_patterns)),
@@ -709,4 +767,6 @@ urlpatterns = [
     path("security/", include(audit_security_patterns)),
     path("system/", include(system_config_patterns)),
     path("ai/", include(ai_patterns)),
+    path("feedback/", include(feedback_patterns)),
+    path("consultant-directory/", include(consultant_directory_patterns)),
 ]

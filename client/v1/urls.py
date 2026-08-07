@@ -44,6 +44,7 @@ from .views.request import (
     ClientRequestAdminCreateView,
 )
 
+from .views.project import ClientProjectListView, ClientProjectDetailView
 from .views.report import MeetingReportDashboardView
 
 router = DefaultRouter()
@@ -85,6 +86,8 @@ urlpatterns = [
     ),
 
     path("past-consultations/", PastConsultationListView.as_view(), name="past-consultations"),
+    path("projects/", ClientProjectListView.as_view(), name="client-projects"),
+    path("projects/<int:pk>/", ClientProjectDetailView.as_view(), name="client-project-detail"),
      path(
         "dashboard/",
         DashboardView.as_view(),

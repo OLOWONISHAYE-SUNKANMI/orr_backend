@@ -257,6 +257,7 @@ class ConsultantProfileView(APIView):
         data = {
             'profileStatus': consultant.status,
             'email': consultant.user.email,
+            'consultant_number': consultant.consultant_number,
         }
 
         # 1. Profile
@@ -780,9 +781,12 @@ class ConsultantDocumentListView(APIView):
         return Response(api_response(data=serializer.data))
 
     def post(self, request, consultant_id):
+        print(f"--- UPLOAD FILE REQUEST FOR {consultant_id} ---")
+        print(request.data)
         try:
             consultant = Consultant.objects.get(consultant_number=consultant_id)
         except Consultant.DoesNotExist:
+            print("CONSULTANT NOT FOUND")
             return Response(api_response(success=False, status_code=status.HTTP_404_NOT_FOUND, message="Consultant not found."))
             
         data = request.data.copy()
@@ -791,8 +795,10 @@ class ConsultantDocumentListView(APIView):
         serializer = ConsultantDocumentSerializer(data=data)
         if serializer.is_valid():
             serializer.save()
+            print("DOCUMENT SAVED SUCCESSFULLY")
             return Response(api_response(message="Document created successfully.", data=serializer.data))
-        return Response(api_response(success=False, status_code=status.HTTP_400_BAD_REQUEST, message="Invalid document data.", data=serializer.errors))
+        print("DOCUMENT VALIDATION FAILED", serializer.errors)
+        return Response(api_response(success=False, status_code=status.HTTP_400_BAD_REQUEST, message="Invalid document data.", data=serializer.errors), status=status.HTTP_400_BAD_REQUEST)
 
 class ConsultantDocumentDetailView(APIView):
     def patch(self, request, consultant_id, pk):
@@ -838,3 +844,62 @@ class ConsultantMessageDirectoryView(APIView):
         if not data:
             data = [{"id": "admin", "name": "Admin System", "role": "Project Manager"}]
         return Response(api_response(data=data))
+
+
+class ConsultantJobAcceptView(APIView):
+    """
+    Consultant accepts an assigned job, provides initial feedback, and triggers AI Document Generation.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, job_id):
+        from consultation.models import ConsultantJob
+        from admin_portal.models import ClientDocument
+        from admin_portal.gemini_service import generate_project_proposal
+        
+        try:
+            job = ConsultantJob.objects.select_related('project', 'project__client').get(
+                id=job_id, consultant__user=request.user, status='ASSIGNED_BY_ADMIN'
+            )
+        except ConsultantJob.DoesNotExist:
+            return Response(api_response(success=False, status_code=status.HTTP_404_NOT_FOUND, message="Job not found or not assigned to you."))
+
+        feedback = request.data.get('feedback', '')
+        
+        job.status = 'ACCEPTED_BY_CONSULTANT'
+        job.consultant_feedback = feedback
+        from django.utils import timezone
+        job.accepted_at = timezone.now()
+        job.save()
+
+        # Trigger AI to generate draft proposal based on PM scope and Consultant Feedback
+        if job.project:
+            project = job.project
+            scope_text = str(job.scope)
+            deliverables_text = str(job.deliverables)
+            client_name = project.client.user.get_full_name() if project.client.user else 'Unknown Client'
+            industry = job.industry
+            
+            draft_content = generate_project_proposal(
+                project_scope=scope_text,
+                project_deliverables=deliverables_text,
+                consultant_feedback=feedback,
+                client_name=client_name,
+                industry=industry
+            )
+
+            # Save draft as ClientDocument
+            doc_title = f"Project Proposal - {project.name} (Draft)"
+            ClientDocument.objects.create(
+                client=project.client,
+                title=doc_title,
+                description="AI-generated draft proposal incorporating PM scope and consultant feedback.\n\n" + draft_content[:200] + "...",
+                is_ai_generated=True,
+                is_draft=True,
+                is_ai_reviewed=False,
+                document_source='google_doc',
+                category='Proposal'
+            )
+
+        return Response(api_response(success=True, message="Job accepted. AI is drafting the proposal for Admin review."))

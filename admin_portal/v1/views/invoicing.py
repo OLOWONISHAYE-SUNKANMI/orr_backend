@@ -11,6 +11,7 @@ from rest_framework import status
 from payment.models import Invoice, Subscription, PricingPlan
 from admin_portal.models import Client
 from common.permissions import IsAdminUser
+from common.response import api_response
 from payment.v1.serializers import InvoiceHistorySerializer
 
 
@@ -256,36 +257,48 @@ class InvoicingOverviewView(APIView):
 class InvoiceGenerationView(APIView):
     """Generate new invoices"""
     
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAuthenticated]
     
     def post(self, request):
         client_id = request.data.get('client_id') or request.data.get('clientId') or request.data.get('userId')
         amount = request.data.get('amount')
-        description = request.data.get('description')
+        description = request.data.get('description') or request.data.get('plan') or 'Custom Service'
         plan = request.data.get('plan', 'Custom')
         due_date = request.data.get('due_date') or request.data.get('dueDate')
         
         missing_fields = []
         if not client_id: missing_fields.append('client_id/clientId')
         if not amount: missing_fields.append('amount')
-        if not description: missing_fields.append('description')
         
         if missing_fields:
-            return Response({
-                "error": f"Missing required fields: {', '.join(missing_fields)}"
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return Response(api_response(
+                success=False,
+                message=f"Missing required fields: {', '.join(missing_fields)}"
+            ), status=status.HTTP_400_BAD_REQUEST)
         
-        try:
-            client = Client.objects.get(id=client_id)
-        except Client.DoesNotExist:
-            return Response({
-                "error": "Client not found"
-            }, status=status.HTTP_404_NOT_FOUND)
+        user = None
+        if str(client_id).isdigit():
+            client = Client.objects.filter(Q(id=client_id) | Q(user_id=client_id)).first()
+            if client:
+                user = client.user
+            else:
+                from django.contrib.auth.models import User
+                user = User.objects.filter(id=client_id).first()
+        else:
+            client = Client.objects.filter(company_name__icontains=str(client_id)).first()
+            if client:
+                user = client.user
+                
+        if not user:
+            return Response(api_response(
+                success=False,
+                message="Client or user not found"
+            ), status=status.HTTP_404_NOT_FOUND)
         
         # Generate invoice
-        invoice_data = self._generate_invoice(client.user, amount, description, plan, due_date)
+        invoice_data = self._generate_invoice(user, amount, description, plan, due_date)
         
-        return Response(invoice_data)
+        return Response(api_response(success=True, data=invoice_data, message="Invoice generated successfully"))
     
     def _generate_invoice(self, user, amount, description, plan, due_date):
         """Generate a new invoice"""

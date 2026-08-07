@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from admin_portal.models import AdminProfile, AdminRole, AuditLog, SystemSettings
+from admin_portal.models import AdminProfile, AdminRole, AuditLog, SystemSettings, LetterheadTemplate
 from admin_portal.permissions import CanManageSettings, CanManageUsers
 from common.permissions import IsAdminUser
 
@@ -15,8 +15,22 @@ from ..serializers.settings import (
     AuditLogSerializer,
     SystemSettingsSerializer,
     UserManagementSerializer,
+    LetterheadTemplateSerializer,
 )
 
+
+@extend_schema(tags=["Settings & System Config"])
+class LetterheadTemplateListView(generics.ListCreateAPIView):
+    queryset = LetterheadTemplate.objects.all()
+    serializer_class = LetterheadTemplateSerializer
+    permission_classes = [IsAdminUser, CanManageSettings]
+
+
+@extend_schema(tags=["Settings & System Config"])
+class LetterheadTemplateDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = LetterheadTemplate.objects.all()
+    serializer_class = LetterheadTemplateSerializer
+    permission_classes = [IsAdminUser, CanManageSettings]
 
 @extend_schema(
     tags=["Settings & System Config"],
@@ -126,6 +140,22 @@ class AdminUserListView(generics.ListAPIView):
     permission_classes = [IsAdminUser]
 
     def get_queryset(self):
+        super_admin_role, _ = AdminRole.objects.get_or_create(name="super_admin", defaults={"description": "Super Admin"})
+        admin_role, _ = AdminRole.objects.get_or_create(name="admin", defaults={"description": "Administrator"})
+        pm_role, _ = AdminRole.objects.get_or_create(name="project_manager", defaults={"description": "Project Manager"})
+        consultant_role, _ = AdminRole.objects.get_or_create(name="consultant", defaults={"description": "Consultant"})
+
+        staff_users = User.objects.filter(is_staff=True)
+        for u in staff_users:
+            if u.is_superuser:
+                assigned_role = super_admin_role
+            elif "pm" in u.username.lower() or "pm" in u.email.lower():
+                assigned_role = pm_role
+            elif "consultant" in u.username.lower() or "consultant" in u.email.lower():
+                assigned_role = consultant_role
+            else:
+                assigned_role = admin_role
+            AdminProfile.objects.get_or_create(user=u, defaults={"role": assigned_role})
         return AdminProfile.objects.select_related("user", "role").all()
 
 
@@ -332,11 +362,13 @@ class CreatePlatformUserView(APIView):
                 
                 if role_type == 'pm':
                     role, _ = AdminRole.objects.get_or_create(name="admin")
-                    AdminProfile.objects.create(
+                    admin_prof, _ = AdminProfile.objects.get_or_create(
                         user=user,
-                        role=role,
-                        department="PM"
+                        defaults={"role": role, "department": "PM"}
                     )
+                    admin_prof.role = role
+                    admin_prof.department = "PM"
+                    admin_prof.save()
                 elif role_type == 'consultant':
                     from consultation.models import Consultant, ConsultantProfile
                     consultant_count = Consultant.objects.count() + 1
@@ -406,7 +438,10 @@ class CreatePlatformUserView(APIView):
                             )
                         elif role_type == 'pm':
                             role, _ = AdminRole.objects.get_or_create(name="admin")
-                            AdminProfile.objects.create(user=user, role=role, department="PM")
+                            aprof, _ = AdminProfile.objects.get_or_create(user=user, defaults={"role": role, "department": "PM"})
+                            aprof.role = role
+                            aprof.department = "PM"
+                            aprof.save()
                         elif role_type == 'consultant':
                             from consultation.models import Consultant, ConsultantProfile
                             cid = f"ORR-CONS-{Consultant.objects.count() + 1:06d}"

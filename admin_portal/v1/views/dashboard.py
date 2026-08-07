@@ -40,21 +40,33 @@ class DashboardOverviewView(APIView):
         # Calculate date ranges
         now = timezone.now()
         seven_days_ago = now - timedelta(days=7)
+        
+        user_role = request.user.admin_profile.role
+        
+        # Base querysets with visibility boundaries
+        client_qs = Client.objects.all()
+        ticket_qs = Ticket.objects.all()
+        meeting_qs = Meeting.objects.all()
+        
+        if user_role.name != "super_admin" and not user_role.can_view_all_clients:
+            client_qs = client_qs.filter(assigned_admin=request.user)
+            ticket_qs = ticket_qs.filter(client__assigned_admin=request.user)
+            meeting_qs = meeting_qs.filter(client__assigned_admin=request.user)
 
         # Active clients (logged in within last 30 days)
-        active_clients = Client.objects.filter(
+        active_clients = client_qs.filter(
             user__last_login__gte=now - timedelta(days=30)
         ).count()
 
         # Pending tickets by status
         pending_tickets = {
-            "new": Ticket.objects.filter(status="new").count(),
-            "in_progress": Ticket.objects.filter(status="in_progress").count(),
-            "waiting_client": Ticket.objects.filter(status="waiting_client").count(),
+            "new": ticket_qs.filter(status="new").count(),
+            "in_progress": ticket_qs.filter(status="in_progress").count(),
+            "waiting_client": ticket_qs.filter(status="waiting_client").count(),
         }
 
         # Upcoming meetings (next 7 days)
-        upcoming_meetings = Meeting.objects.filter(
+        upcoming_meetings = meeting_qs.filter(
             confirmed_datetime__gte=now,
             confirmed_datetime__lte=now + timedelta(days=7),
             status="confirmed",
@@ -93,6 +105,11 @@ class DashboardOverviewView(APIView):
         # System health status
         system_health = SystemHealthService.get_system_health()
 
+        from admin_portal.models import TechnicalFeedback
+        
+        # Pending technical feedback
+        pending_feedback = TechnicalFeedback.objects.filter(status__in=['open', 'in_progress']).count()
+
         stats_data = {
             "active_clients": active_clients,
             "active_clients_link": "/admin-portal/v1/clients/?activity=active",
@@ -104,6 +121,7 @@ class DashboardOverviewView(APIView):
             "escalation_rate": round(escalation_rate, 2),
             "most_used_resources": most_used_resources,
             "system_health": system_health,
+            "pending_technical_feedback": pending_feedback,
         }
 
         serializer = DashboardStatsSerializer(stats_data)

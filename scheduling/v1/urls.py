@@ -11,6 +11,7 @@ from .views import (
     UpdateMeetingPrepView,
     CreateCalendlyWebhook,
     MeetingDetailView,
+    MeetingHostJoinedView,
 )
 
 urlpatterns = [
@@ -20,6 +21,11 @@ urlpatterns = [
         "meetings/<int:pk>/change-status/",
         MeetingChangeStatusView.as_view(),
         name="meeting-change-status",
+    ),
+    path(
+        "meetings/<int:pk>/host-joined/",
+        MeetingHostJoinedView.as_view(),
+        name="meeting-host-joined",
     ),
     path(
         "meeting-preform/<int:pk>",

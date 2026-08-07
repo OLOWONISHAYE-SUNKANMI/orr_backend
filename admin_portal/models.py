@@ -16,7 +16,6 @@ class AdminRole(models.Model):
         ("super_admin", "Super Admin"),
         ("admin", "Admin"),
         ("operator", "Operator/Support"),
-        ("content_editor", "Content Editor"),
         ("qa_tester", "QA Tester"),
     ]
 
@@ -352,6 +351,13 @@ class Meeting(StateMachineMixin, Audit):
     # Integration
     calendar_event_id = models.CharField(max_length=200, blank=True)
     meeting_link = models.URLField(blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.meeting_link:
+            import uuid
+            code = str(uuid.uuid4())[:8]
+            self.meeting_link = f"https://meet.orr.solutions/room/{code}"
+        super().save(*args, **kwargs)
 
     @property
     def duration_hours(self):
@@ -729,9 +735,16 @@ class ClientDocument(Audit):
     access_rule_linked_id = models.CharField(max_length=100, blank=True)
     access_rule_description = models.TextField(blank=True)
 
+
+
     # Analytics
     download_count = models.PositiveIntegerField(default=0)
     last_accessed = models.DateTimeField(null=True, blank=True)
+    
+    # AI Generation Tracking
+    is_ai_generated = models.BooleanField(default=False)
+    is_draft = models.BooleanField(default=False)
+    is_ai_reviewed = models.BooleanField(default=False)
 
     class Meta:
         indexes = [
@@ -803,7 +816,7 @@ class ClientDocument(Audit):
                         return request.build_absolute_uri(url)
                     
                     from decouple import config
-                    api_url = config('BACKEND_URL', default='https://orr-backend-105825824472.asia-southeast2.run.app')
+                    api_url = config('BACKEND_URL', default='http://localhost:8000')
                     return f"{api_url.rstrip('/')}{url}"
                 return url
             except Exception:
@@ -836,6 +849,11 @@ class DocumentVersion(Audit):
 
     def __str__(self):
         return f"{self.document.title} - v{self.version_number}"
+
+    def get_frontend_url(self):
+        return f"/document-vault/studio?id={self.id}"
+
+
 
 
 class ProRataApproval(Audit):
@@ -1020,6 +1038,11 @@ class StudioDocument(Audit):
     is_trashed = models.BooleanField(default=False)
     trashed_at = models.DateTimeField(null=True, blank=True)
 
+    # AI Generation Tracking
+    is_ai_generated = models.BooleanField(default=False)
+    is_draft = models.BooleanField(default=False)
+    is_ai_reviewed = models.BooleanField(default=False)
+
     class Meta:
         ordering = ['-updated_at']
         indexes = [
@@ -1046,3 +1069,51 @@ class UATSignOff(models.Model):
 
     def __str__(self):
         return f"{self.milestone_name} signed by {self.signed_by_name} on {self.sign_off_date}"
+
+
+class LetterheadTemplate(Audit):
+    """
+    Templates for generating official documents on letterhead.
+    """
+    name = models.CharField(max_length=200, unique=True, help_text="e.g. 'Standard ORR Letterhead'")
+    description = models.TextField(blank=True)
+    header_html = models.TextField(blank=True, help_text="HTML for the header.")
+    footer_html = models.TextField(blank=True, help_text="HTML for the footer.")
+    css_styles = models.TextField(blank=True, help_text="Custom CSS for the document.")
+    is_default = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+
+    def save(self, *args, **kwargs):
+        if self.is_default:
+            # Unset default on other templates
+            LetterheadTemplate.objects.filter(is_default=True).update(is_default=False)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+class TechnicalFeedback(Audit):
+    """Model for tracking technical feedback and bug reports from users"""
+    STATUS_CHOICES = [
+        ('open', 'Open'),
+        ('in_progress', 'In Progress'),
+        ('resolved', 'Resolved'),
+        ('closed', 'Closed'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='technical_feedback', null=True, blank=True)
+    subject = models.CharField(max_length=255)
+    description = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
+    attachment = models.FileField(upload_to="feedback_attachments/", null=True, blank=True)
+    
+    # Metadata for debugging
+    browser_info = models.CharField(max_length=255, blank=True)
+    os_info = models.CharField(max_length=255, blank=True)
+    url_path = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.subject} ({self.get_status_display()})"

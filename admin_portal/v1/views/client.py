@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 import threading
 
 from admin_portal.models import Client, ClientDocument
-from admin_portal.permissions import CanEditClients, CanViewAllClients
+from admin_portal.permissions import CanEditClients, CanViewAllClients, IsAdminUser
 
 from ..serializers.client import (
     ClientCreateSerializer,
@@ -30,8 +30,8 @@ class ClientListView(generics.ListCreateAPIView):
 
     def get_permissions(self):
         if self.request.method == "POST":
-            return [IsAuthenticated()]
-        return [CanViewAllClients()]
+            return [CanEditClients()]
+        return [IsAdminUser()]
 
     def get_serializer_class(self):
         if self.request.method == "POST":
@@ -326,7 +326,21 @@ class ClientDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Get, update, or delete client details"""
 
     queryset = Client.objects.select_related("user", "assigned_admin").all()
-    permission_classes = [CanViewAllClients]
+    
+    def get_permissions(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [CanEditClients()]
+        return [IsAdminUser()]
+
+    def get_queryset(self):
+        queryset = Client.objects.select_related("user", "assigned_admin").all()
+        try:
+            user_role = self.request.user.admin_profile.role
+            if user_role.name == "admin" and not user_role.can_view_all_clients:
+                queryset = queryset.filter(assigned_admin=self.request.user)
+        except AttributeError:
+            pass
+        return queryset
 
     def get_serializer_class(self):
         if self.request.method == "GET":

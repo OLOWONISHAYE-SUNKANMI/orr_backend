@@ -229,6 +229,13 @@ class CreateCheckoutSession(APIView):
                                     description=f"Payment for {plan.name} (via Card)",
                                     reference_id=payment_intent.id
                                 )
+                                
+                                # Process document unlocks
+                                try:
+                                    from admin_portal.services import DocumentAccessService
+                                    DocumentAccessService.process_document_unlocks_for_payment(request.user, payment_intent.id)
+                                except Exception as doc_err:
+                                    logger.error(f"Failed to process document unlocks for payment intent {payment_intent.id}: {doc_err}")
                             
                             return Response({
                                 "status": "success",

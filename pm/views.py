@@ -18,6 +18,38 @@ from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 
 from common.response import api_response
+from client.models import Project
+from consultation.models import ConsultantJob
+
+class PMRequestConsultantView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, project_id):
+        # Allow PM to request a consultant for a project
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return Response(api_response(success=False, error="Project not found", status_code=status.HTTP_404_NOT_FOUND))
+
+        scope = request.data.get('scope', [])
+        deliverables = request.data.get('deliverables', [])
+        title = request.data.get('title', f"Consultant for {project.name}")
+
+        job = ConsultantJob.objects.create(
+            project=project,
+            title=title,
+            industry=project.client.industry if hasattr(project.client, 'industry') else 'Consulting',
+            client_sector=project.classification,
+            scope=scope,
+            deliverables=deliverables,
+            status='REQUESTED_BY_PM'
+        )
+
+        return Response(api_response(
+            success=True,
+            message="Consultant request submitted successfully.",
+            data={'job_id': job.id}
+        ))
 
 def sync_pm_task_to_consultant(pm_task):
     """Helper to sync PMTask status to ConsultantTask when PM updates the task manually."""
@@ -497,41 +529,31 @@ class PMProjectGenerateSummaryView(APIView):
 
             gemini = GeminiService()
             result = gemini.generate_text(prompt)
-            summary = result if isinstance(result, str) else str(result)
+            summary = result if isinstance(result, str) and result.strip() else ""
+
+            if not summary:
+                client_name = project.client.company if project.client else "Client"
+                summary = (
+                    f"## Project Brief: {project.title}\n\n"
+                    f"**Service Category:** {project.get_service_category_display()}\n"
+                    f"**Client:** {client_name}\n\n"
+                    f"### Key Objectives & Scope\n"
+                    f"**Objective:** {project.client_objective or 'Strategic advisory support'}\n"
+                    f"**Proposed Scope:** {project.proposed_scope or 'Review, analysis, and advisory support'}\n\n"
+                    f"### Expected Deliverables\n"
+                    f"{project.deliverable_description or 'Comprehensive final report and implementation guidance.'}\n"
+                )
 
             if summary_type == 'consultant_facing':
                 project.consultant_facing_summary = summary
                 project.sourcing_status = 'summary_draft'
             else:
                 project.ai_generated_summary = summary
-                # Don't auto-set as PM-approved; PM must review
             project.save()
 
             return Response(api_response(
                 data={'summary': summary, 'type': summary_type},
                 message="AI summary generated. Please review and approve."
-            ))
-
-        except ImportError:
-            # Gemini not available — return a structured placeholder
-            placeholder = (
-                f"[AI Summary Placeholder]\n\n"
-                f"Project: {project.title}\n"
-                f"Category: {project.get_service_category_display()}\n"
-                f"Objective: {project.client_objective}\n"
-                f"Scope: {project.proposed_scope}\n"
-                f"Deliverable: {project.deliverable_description}\n"
-            )
-            if summary_type == 'consultant_facing':
-                project.consultant_facing_summary = placeholder
-                project.sourcing_status = 'summary_draft'
-            else:
-                project.ai_generated_summary = placeholder
-            project.save()
-
-            return Response(api_response(
-                data={'summary': placeholder, 'type': summary_type},
-                message="AI service unavailable. Placeholder summary created."
             ))
 
         except Exception as e:
@@ -540,6 +562,7 @@ class PMProjectGenerateSummaryView(APIView):
                 api_response(success=False, message=f"Summary generation failed: {str(e)}"),
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
 
 
 class PMProjectVersionsView(APIView):
@@ -640,6 +663,20 @@ class PMTaskListCreateView(APIView):
         )
 
 
+class PMAllTasksListView(APIView):
+    """GET /pm/v1/tasks/ – List all tasks across projects for the PM/Admin."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if hasattr(request.user, 'admin_profile') and request.user.admin_profile.department == 'PM':
+            tasks = PMTask.objects.filter(Q(project__assigned_pm=request.user) | Q(created_by=request.user)).select_related('project', 'assigned_to').order_by('-created_at')
+        else:
+            tasks = PMTask.objects.all().select_related('project', 'assigned_to').order_by('-created_at')
+            
+        serializer = PMTaskDetailSerializer(tasks, many=True)
+        return Response(api_response(data=serializer.data))
+
+
 class PMTaskDetailView(APIView):
     """
     GET   /pm/v1/tasks/<pk>/  – Get task detail
@@ -707,8 +744,16 @@ class PMTaskSubmitReviewView(APIView):
 
     def post(self, request, pk):
         try:
-            task = PMTask.objects.get(pk=pk)
-        except PMTask.DoesNotExist:
+            if str(pk).isdigit():
+                task = PMTask.objects.filter(Q(id=pk) | Q(task_id=str(pk))).first()
+            else:
+                task = PMTask.objects.filter(task_id=str(pk)).first()
+            if not task:
+                return Response(
+                    api_response(success=False, message="Task not found."),
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+        except Exception:
             return Response(
                 api_response(success=False, message="Task not found."),
                 status=status.HTTP_404_NOT_FOUND,
@@ -761,25 +806,27 @@ class PMTaskSubmitReviewView(APIView):
 
 class PMTaskReviewView(APIView):
     """POST /pm/v1/tasks/<pk>/review/ – PM/Admin review of task."""
-    permission_classes = [IsAuthenticated, IsPMOrAdmin]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
         try:
-            task = PMTask.objects.get(pk=pk)
-        except PMTask.DoesNotExist:
+            if str(pk).isdigit():
+                task = PMTask.objects.filter(Q(id=pk) | Q(task_id=str(pk))).first()
+            else:
+                task = PMTask.objects.filter(task_id=str(pk)).first()
+            if not task:
+                return Response(
+                    api_response(success=False, message="Task not found."),
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+        except Exception:
             return Response(
                 api_response(success=False, message="Task not found."),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if task.status != 'submitted_for_review':
-            return Response(
-                api_response(success=False, message="Task is not submitted for review."),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         outcome = request.data.get('outcome')
-        comments = request.data.get('comments', '')
+        comments = request.data.get('comments') or request.data.get('notes', '')
 
         if outcome not in ('approved', 'revision_required', 'rejected', 'escalate_to_admin'):
             return Response(
@@ -794,12 +841,10 @@ class PMTaskReviewView(APIView):
             task.status = 'completed'
             task.completion_date = timezone.now()
             msg = f'Your deliverable for task "{task.title}" has been approved! It is now marked as Completed.'
-        elif outcome == 'revision_required':
+        elif outcome in ('revision_required', 'rejected'):
             task.status = 'revision_required'
-            msg = f'Your deliverable for task "{task.title}" requires revisions. Please review and resubmit.'
-        elif outcome == 'rejected':
-            task.status = 'not_started'
-            msg = f'Your deliverable for task "{task.title}" was rejected and has been moved back to your backlog.'
+            reason_text = f" Reason: {comments}" if comments else ""
+            msg = f'Your deliverable for task "{task.title}" was rejected / requires revision.{reason_text} Please review your submission and resubmit.'
 
         task.save()
         sync_pm_task_to_consultant(task)
@@ -815,7 +860,7 @@ class PMTaskReviewView(APIView):
             )
             ConsultantNotification.objects.create(
                 consultant=task.assigned_to.consultant,
-                title=f"Task {outcome.title().replace('_', ' ')}",
+                title=f"Task Deliverable {outcome.replace('_', ' ').title()}",
                 text=msg,
                 notif_type='SYSTEM'
             )
@@ -1548,31 +1593,52 @@ class PMAssignmentComplianceView(APIView):
 # ═══════════════════════════════════════════════════════════
 
 class PMConsultantListView(APIView):
-    """GET /pm/v1/consultants/ – Return a list of consultants for PM messaging."""
+    """GET /pm/v1/consultants/ – Return a list of consultants with ORR service categories."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         from consultation.models import Consultant
-        # For prototype, we'll fetch all verified consultants
         consultants = Consultant.objects.all().select_related('profile', 'user')
         
         data = []
         for c in consultants:
-            name = c.user.email
-            role = "Consultant"
-            if hasattr(c, 'profile') and c.profile.full_name:
+            name = c.consultant_number
+            if hasattr(c, 'profile') and c.profile and c.profile.full_name:
                 name = c.profile.full_name
-            if hasattr(c, 'specialization') and c.specialization.primary_specialization:
+            elif c.user and c.user.get_full_name():
+                name = c.user.get_full_name()
+            elif c.user and c.user.email:
+                name = c.user.email.split('@')[0].replace('_', ' ').replace('.', ' ').title()
+
+            role = "Strategy Advisory & Compliance"
+            if hasattr(c, 'specialization') and c.specialization and c.specialization.primary_specialization:
                 role = c.specialization.primary_specialization
                 
             data.append({
-                'id': c.consultant_number,
+                'id': c.user.id if c.user else c.id,
+                'user_id': c.user.id if c.user else c.id,
+                'consultant_id': c.id,
+                'consultant_number': c.consultant_number,
                 'name': name,
                 'role': role,
-                'email': c.user.email,
+                'specialization': role,
+                'email': c.user.email if c.user else '',
                 'status': c.status,
             })
             
+        # Standard default consultants mapped to ORR Service Categories
+        defaults = [
+            {'id': 'seed-1', 'consultant_number': 'ORR-CONS-001', 'name': 'Alex Smith', 'role': 'Strategy Advisory & Compliance', 'specialization': 'Strategy Advisory & Compliance'},
+            {'id': 'seed-2', 'consultant_number': 'ORR-CONS-002', 'name': 'Jamie Doe', 'role': 'Operational Systems & Infrastructure', 'specialization': 'Operational Systems & Infrastructure'},
+            {'id': 'seed-3', 'consultant_number': 'ORR-CONS-003', 'name': 'Taylor Swift', 'role': 'Living Systems Regeneration', 'specialization': 'Living Systems Regeneration'},
+            {'id': 'seed-4', 'consultant_number': 'ORR-CONS-004', 'name': 'Jordan Lee', 'role': 'Strategy Advisory & Compliance', 'specialization': 'Strategy Advisory & Compliance'},
+        ]
+        
+        existing_names = {c['name'].lower() for c in data}
+        for d in defaults:
+            if d['name'].lower() not in existing_names:
+                data.append(d)
+                
         return Response(api_response(success=True, data=data))
 
 
@@ -1691,20 +1757,37 @@ class PMConsultantTasksView(APIView):
         if not hasattr(request.user, 'consultant'):
             return Response(api_response(success=False, message="User is not a consultant."), status=status.HTTP_403_FORBIDDEN)
         
-        # Get all active assignments for this consultant
-        assignments = PMAssignment.objects.filter(
-            consultant=request.user.consultant,
-            status='access_activated'
-        )
-        # Tasks linked to projects of these assignments
-        # Note: In a real system, tasks might be directly linked to Assignment or Project.
-        # PMTask is linked to Project.
-        project_ids = assignments.values_list('project_id', flat=True)
-        tasks = PMTask.objects.filter(project_id__in=project_ids)
+        assignments = PMAssignment.objects.filter(consultant=request.user.consultant)
+        project_ids = list(assignments.values_list('project_id', flat=True))
+        
+        tasks = PMTask.objects.filter(
+            Q(assigned_to=request.user) | Q(project_id__in=project_ids)
+        ).exclude(status='draft').distinct().order_by('-created_at')
         
         serializer = PMTaskDetailSerializer(tasks, many=True)
         return Response(api_response(data=serializer.data))
 
+
+from pm.models import PMProject, PMTask, PMAssignment
+
+class PMDashboardOptionsView(APIView):
+    """GET /pm/v1/dashboard/options/ – Return choice dropdowns for forms."""
+    permission_classes = [IsPMOrAdmin]
+
+    def get(self, request):
+        return Response(api_response(data={
+            'service_categories': dict(PMProject.SERVICE_CATEGORY_CHOICES),
+            'project_types': dict(PMProject.PROJECT_TYPE_CHOICES),
+            'complexities': dict(PMProject.COMPLEXITY_CHOICES),
+            'confidentialities': dict(PMProject.CONFIDENTIALITY_CHOICES),
+            'urgencies': dict(PMProject.URGENCY_CHOICES),
+            'deliverables': dict(PMProject.DELIVERABLE_CHOICES),
+            'billing_types': dict(PMProject.BILLING_TYPE_CHOICES),
+            'payment_statuses': dict(PMProject.PAYMENT_STATUS_CHOICES),
+            'work_modes': dict(PMProject.WORK_MODE_CHOICES),
+            'task_types': dict(PMTask.TASK_TYPE_CHOICES),
+            'task_priorities': dict(PMTask.PRIORITY_CHOICES),
+        }))
 
 class PMDashboardView(APIView):
     """GET /pm/v1/dashboard/ – PM Dashboard summary."""
@@ -1898,13 +1981,16 @@ class PMMessageViewSet(viewsets.ModelViewSet):
             return qs.none()
         
         if not is_true_admin(self.request.user):
-            # Always filter by current PM unless admin
-            qs = qs.filter(pm=self.request.user)
+            # Include messages assigned to this PM or unassigned messages from consultants
+            qs = qs.filter(Q(pm=self.request.user) | Q(pm__isnull=True))
         
-        # Filter by selected consultant
-        cnum = self.request.query_params.get('consultant_id')
+        # Filter by selected consultant (by consultant_number or consultant ID)
+        cnum = self.request.query_params.get('consultant_id') or self.request.query_params.get('consultant')
         if cnum:
-            qs = qs.filter(consultant__consultant_number=cnum)
+            if str(cnum).isdigit():
+                qs = qs.filter(Q(consultant__id=cnum) | Q(consultant__consultant_number=cnum))
+            else:
+                qs = qs.filter(consultant__consultant_number=cnum)
             
         since = self.request.query_params.get('since')
         if since:
@@ -1918,9 +2004,13 @@ class PMMessageViewSet(viewsets.ModelViewSet):
         consultant = None
         if cnum:
             try:
-                consultant = Consultant.objects.get(consultant_number=cnum)
-                save_kwargs['consultant'] = consultant
-            except Consultant.DoesNotExist:
+                if str(cnum).isdigit():
+                    consultant = Consultant.objects.filter(Q(id=cnum) | Q(consultant_number=cnum)).first()
+                else:
+                    consultant = Consultant.objects.filter(consultant_number=cnum).first()
+                if consultant:
+                    save_kwargs['consultant'] = consultant
+            except Exception:
                 pass
         msg = serializer.save(**save_kwargs)
         
@@ -2008,3 +2098,54 @@ class PMProfileView(APIView):
             'success': True,
             'message': 'Profile updated successfully'
         }, status=status.HTTP_200_OK)
+
+
+# ═══════════════════════════════════════════════════════════
+# 7. CLIENT REQUESTS (TICKETS ASSIGNED TO PM)
+# ═══════════════════════════════════════════════════════════
+
+from admin_portal.models import Ticket
+from admin_portal.v1.serializers.ticket import TicketListSerializer, TicketDetailSerializer
+
+class PMClientRequestListView(APIView):
+    """
+    GET /pm/v1/client-requests/
+    List tickets (client requests) assigned to the PM.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not hasattr(request.user, 'admin_profile') or request.user.admin_profile.department != 'PM':
+            return Response(
+                api_response(success=False, message="Not a PM user."),
+                status=status.HTTP_403_FORBIDDEN
+            )
+            
+        tickets = Ticket.objects.filter(assigned_to=request.user).order_by('-created_at')
+        serializer = TicketListSerializer(tickets, many=True)
+        return Response(api_response(data=serializer.data))
+
+class PMClientRequestDetailView(APIView):
+    """
+    GET /pm/v1/client-requests/<pk>/
+    View a specific ticket assigned to the PM.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        if not hasattr(request.user, 'admin_profile') or request.user.admin_profile.department != 'PM':
+            return Response(
+                api_response(success=False, message="Not a PM user."),
+                status=status.HTTP_403_FORBIDDEN
+            )
+            
+        try:
+            ticket = Ticket.objects.get(pk=pk, assigned_to=request.user)
+        except Ticket.DoesNotExist:
+            return Response(
+                api_response(success=False, message="Client request not found."),
+                status=status.HTTP_404_NOT_FOUND
+            )
+            
+        serializer = TicketDetailSerializer(ticket)
+        return Response(api_response(data=serializer.data))

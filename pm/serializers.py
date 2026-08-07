@@ -12,6 +12,7 @@ from .models import (
     PMConsultantMatch, PMAssignment, PMAssignmentCompliance,
     PMOpportunity,
 )
+from admin_portal.models import Client, Ticket
 
 
 # ═══════════════════════════════════════════════
@@ -97,10 +98,14 @@ class PMProjectListSerializer(serializers.ModelSerializer):
             'assigned_pm', 'service_category', 'project_type',
             'confidentiality_level', 'urgency', 'status',
             'sourcing_status', 'target_deadline',
+            'consultant_facing_summary', 'pm_approved_summary', 'ai_generated_summary',
+            'proposed_scope', 'client_objective', 'deliverable_description',
+            'num_consultants_required',
             'task_count', 'assignment_count',
             'interested_consultants', 'selected_consultant_id',
             'created_at', 'updated_at',
         ]
+
 
     def get_client_name(self, obj):
         return f"{obj.client.user.get_full_name()} - {obj.client.company}" if obj.client else ''
@@ -246,10 +251,19 @@ class PMProjectDetailSerializer(serializers.ModelSerializer):
 class PMProjectCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating/updating projects."""
 
+    source_ticket = serializers.PrimaryKeyRelatedField(
+        queryset=Ticket.objects.all(),
+        required=False, allow_null=True
+    )
+    client = serializers.PrimaryKeyRelatedField(
+        queryset=Client.objects.all(),
+        required=False, allow_null=True
+    )
+
     class Meta:
         model = PMProject
         fields = [
-            'client', 'title', 'service_category', 'secondary_categories',
+            'client', 'source_ticket', 'title', 'service_category', 'secondary_categories',
             'project_type', 'complexity', 'confidentiality_level', 'urgency',
             'client_objective', 'main_problem', 'proposed_scope', 'out_of_scope',
             'expected_deliverable', 'deliverable_description',
@@ -264,10 +278,142 @@ class PMProjectCreateSerializer(serializers.ModelSerializer):
             'status', 'pm_approved_summary', 'consultant_facing_summary',
         ]
 
+    def to_internal_value(self, data):
+        if hasattr(data, 'copy'):
+            data = data.copy()
+        elif isinstance(data, dict):
+            data = dict(data)
+
+        LABEL_TO_KEY = {
+            # service_category
+            'Strategy Advisory & Compliance': 'strategy_advisory_compliance',
+            'Operational Systems & Infrastructure': 'operational_systems_infrastructure',
+            'Living Systems Regeneration': 'living_systems_regeneration',
+            
+            # project_type
+            'Initial Advisory': 'initial_advisory',
+            'Diagnostic Review': 'diagnostic_review',
+            'Report / Written Opinion': 'report_written_opinion',
+            'Implementation Support': 'implementation_support',
+            'Compliance Support': 'compliance_support',
+            'Operational Setup': 'operational_setup',
+            'Retainer Workstream': 'retainer_workstream',
+            'Technical Review': 'technical_review',
+            'Other': 'other',
+            
+            # complexity
+            'Low': 'low',
+            'Medium': 'medium',
+            'High': 'high',
+            'Specialist / Multi-disciplinary': 'specialist_multidisciplinary',
+            'Specialist / Multidisciplinary': 'specialist_multidisciplinary',
+            
+            # confidentiality_level
+            'Standard': 'standard',
+            'Confidential': 'confidential',
+            'Highly Confidential': 'highly_confidential',
+            'Restricted Access': 'restricted_access',
+            
+            # urgency
+            'Normal': 'normal',
+            'Priority': 'priority',
+            'Urgent': 'urgent',
+            'Critical': 'critical',
+            
+            # expected_deliverable
+            'Meeting Summary': 'meeting_summary',
+            'Advisory Note': 'advisory_note',
+            'Written Report': 'written_report',
+            'Compliance Review': 'compliance_review',
+            'Technical Specification': 'technical_specification',
+            'Implementation Plan': 'implementation_plan',
+            'Project Roadmap': 'project_roadmap',
+            'Risk Assessment': 'risk_assessment',
+            'Document Review': 'document_review',
+            'Client Presentation': 'client_presentation',
+            
+            # billing_type
+            'First Report': 'first_report',
+            'Fixed Fee': 'fixed_fee',
+            'Hourly': 'hourly',
+            'Retainer': 'retainer',
+            'Included in Existing Retainer': 'included_in_retainer',
+            'Included in Retainer': 'included_in_retainer',
+            'To Be Confirmed': 'to_be_confirmed',
+            
+            # payment_status
+            'Not Required Yet': 'not_required_yet',
+            'Pending Payment': 'pending_payment',
+            'Paid': 'paid',
+            'Admin Confirmation Required': 'admin_confirmation_required',
+            
+            # work_mode
+            'Remote': 'remote',
+            'On-site': 'on_site',
+            'Hybrid': 'hybrid',
+            
+            # status
+            'Draft': 'draft',
+            'Awaiting Client Confirmation': 'awaiting_client_confirmation',
+            'Awaiting Payment': 'awaiting_payment',
+            'Pending Admin Review': 'pending_admin_review',
+            'Needs PM Clarification': 'needs_pm_clarification',
+            'Approved for Consultant Sourcing': 'approved_for_sourcing',
+            'Ready for Consultant Matching': 'ready_for_matching',
+            'Sourcing Internally': 'sourcing_internally',
+            'Sourcing Externally': 'sourcing_externally',
+            'Consultant Assignment Pending': 'consultant_assignment_pending',
+            'Active': 'active',
+            'Internal Review': 'internal_review',
+            'Delivered': 'delivered',
+            'Completed': 'completed',
+            'Closed': 'closed',
+            'On Hold': 'on_hold',
+            'Cancelled': 'cancelled',
+        }
+
+        # Normalize scalar choice fields
+        choice_fields = [
+            'service_category', 'project_type', 'complexity',
+            'confidentiality_level', 'urgency', 'billing_type',
+            'payment_status', 'status'
+        ]
+        for field in choice_fields:
+            if field in data and isinstance(data[field], str):
+                val = data[field]
+                data[field] = LABEL_TO_KEY.get(val, val)
+
+        # Normalize list choice fields
+        list_choice_fields = ['secondary_categories', 'expected_deliverable', 'work_mode_required']
+        for field in list_choice_fields:
+            if field in data and isinstance(data[field], list):
+                data[field] = [LABEL_TO_KEY.get(x, x) if isinstance(x, str) else x for x in data[field]]
+
+        return super().to_internal_value(data)
+
+    def validate(self, data):
+        client = data.get('client', getattr(self.instance, 'client', None))
+        source_ticket = data.get('source_ticket', getattr(self.instance, 'source_ticket', None))
+        
+        if not client and not source_ticket:
+            raise serializers.ValidationError("Either 'client' or 'source_ticket' must be provided.")
+        if data.get('source_ticket') and not data.get('client'):
+            data['client'] = data['source_ticket'].client
+        return data
+
     def create(self, validated_data):
         # Auto-set the PM to the requesting user
         validated_data['assigned_pm'] = self.context['request'].user
-        return super().create(validated_data)
+        
+        project = super().create(validated_data)
+        
+        # If project is created from a ticket, we could optionally update the ticket status
+        # source_ticket = validated_data.get('source_ticket')
+        # if source_ticket:
+        #     source_ticket.status = 'resolved' # Or 'project_created'
+        #     source_ticket.save()
+            
+        return project
 
 
 # ═══════════════════════════════════════════════
@@ -325,6 +471,23 @@ class PMTaskCreateSerializer(serializers.ModelSerializer):
     dependency_ids = serializers.ListField(
         child=serializers.IntegerField(), required=False, write_only=True
     )
+
+    def to_internal_value(self, data):
+        if hasattr(data, 'copy'):
+            data = data.copy()
+        assigned_to = data.get('assigned_to')
+        if assigned_to:
+            from django.contrib.auth.models import User
+            from consultation.models import Consultant
+            if not User.objects.filter(id=assigned_to).exists():
+                consultant = Consultant.objects.filter(id=assigned_to).first()
+                if consultant and consultant.user:
+                    data['assigned_to'] = consultant.user.id
+                else:
+                    consultant = Consultant.objects.filter(consultant_number=str(assigned_to)).first()
+                    if consultant and consultant.user:
+                        data['assigned_to'] = consultant.user.id
+        return super().to_internal_value(data)
 
     class Meta:
         model = PMTask

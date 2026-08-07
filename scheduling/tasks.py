@@ -148,17 +148,42 @@ def send_meeting_reminders():
         # Prevent duplicate reminders (we could use a flag or cache, but checking this narrow window handles most cases)
         try:
             from admin_portal.orr_email_service import ORREmailService
+            from django.contrib.auth.models import User
             
             meeting_time = meeting.requested_datetime.strftime("%Y-%m-%d %H:%M UTC")
             
-            # Send to client
+            # 1. Send to client
             if meeting.client and meeting.client.user.email:
                 ORREmailService.send_meeting_reminder(
                     recipient_email=meeting.client.user.email,
-                    meeting_topic=meeting.get_meeting_type_display(),
+                    meeting_subject=f"{meeting.get_meeting_type_display()} with ORR Solutions",
                     meeting_time=meeting_time,
-                    meeting_link=meeting.meeting_link or "Link will be provided",
-                    calendar_url=f"https://orr.solutions/meetings/{meeting.id}"
+                    minutes_until="60",
+                    meeting_link=meeting.meeting_link or "Link will be provided"
+                )
+            
+            # 2. Send to Admin / Host
+            admin_emails = []
+            if meeting.host and meeting.host.email:
+                admin_emails.append(meeting.host.email)
+            else:
+                # If no host, find superusers or users with 'admin' role
+                from admin_portal.models import AdminRole
+                admins = User.objects.filter(is_superuser=True, is_active=True)
+                for admin in admins:
+                    if admin.email:
+                        admin_emails.append(admin.email)
+                        
+            # Remove duplicates
+            admin_emails = list(set(admin_emails))
+            
+            for admin_email in admin_emails:
+                ORREmailService.send_meeting_reminder(
+                    recipient_email=admin_email,
+                    meeting_subject=f"Upcoming {meeting.get_meeting_type_display()} with {meeting.client.user.get_full_name() if meeting.client else 'Client'}",
+                    meeting_time=meeting_time,
+                    minutes_until="60",
+                    meeting_link=meeting.meeting_link or "Link will be provided"
                 )
         except Exception as e:
             logger.error(f"Failed to send meeting reminder for meeting {meeting.id}: {e}")

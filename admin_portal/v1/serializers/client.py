@@ -269,6 +269,9 @@ class ClientDocumentSerializer(serializers.ModelSerializer):
             "last_accessed",
             "created_at",
             "updated_at",
+            "is_ai_generated",
+            "is_draft",
+            "is_ai_reviewed",
             "file_size",
             "link",
         ]

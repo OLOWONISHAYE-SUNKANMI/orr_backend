@@ -5,8 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from admin_portal.models import AIConversation, Client, ClientDocument, Meeting, Ticket
-from admin_portal.permissions import CanViewAllClients
-
+from admin_portal.permissions import IsAdminUser
 
 @extend_schema(
     tags=["Client Management"],
@@ -16,11 +15,17 @@ from admin_portal.permissions import CanViewAllClients
 class ClientCompleteProfileView(APIView):
     """Complete client profile with all required elements"""
 
-    permission_classes = [CanViewAllClients]
+    permission_classes = [IsAdminUser]
 
     def get(self, request, pk):
         try:
             client = Client.objects.select_related("user", "assigned_admin").get(pk=pk)
+            
+            # Check RBAC
+            user_role = request.user.admin_profile.role
+            if user_role and user_role.name != "super_admin" and not user_role.can_view_all_clients:
+                if client.assigned_admin != request.user:
+                    return Response({"detail": "You do not have permission to view this client."}, status=status.HTTP_403_FORBIDDEN)
 
             # Basic info
             basic_info = {

@@ -73,9 +73,11 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "common.thread_local_middleware.ThreadLocalUserMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "common.mfa_enforcement.MFAEnforcementMiddleware",
 ]
+
+X_FRAME_OPTIONS = 'ALLOWALL'
 
 # Storage settings for Django 4.2+
 GS_BUCKET_NAME = config("GS_BUCKET_NAME", default="")
@@ -212,10 +214,17 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "common.authentication.SessionTimeoutJWTAuthentication",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+        "admin_portal.throttles.AdminRateThrottle",
+    ],
     "DEFAULT_THROTTLE_RATES": {
-        "user": "100/day",
-        "anon": "10/hour",
-        "document_autosave": "60/minute",
+        "user": "100000/day",
+        "anon": "10000/day",
+        "admin": "100000/day",
+        "document_autosave": "1000/minute",
+        "document_download": "5000/day",
     },
 }
 
@@ -270,6 +279,11 @@ if 'test' in sys.argv:
 CELERY_BROKER_URL = config("CELERY_BROKER_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 
+if 'runserver' in sys.argv and not config('USE_CELERY_IN_DEV', default=False, cast=bool):
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+
+
 
 
 FRONTEND_VERIFY_EMAIL_URL = config("FRONTEND_VERIFY_EMAIL_URL", default="https://orr.solutions/auth/verify-email")
@@ -311,7 +325,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3006",
     "http://127.0.0.1:3006",
     "http://localhost:5173",
-    "https://orr-backend-105825824472.asia-southeast2.run.app",
+    "http://localhost:8000",
     "https://admin.orr.solutions",
     "https://orr-admin-frontend.vercel.app",
     "https://orr-solutions-admin.vercel.app",
@@ -367,12 +381,12 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3006",
     "http://127.0.0.1:3006",
     "http://localhost:5173",
-    "https://orr-backend-105825824472.asia-southeast2.run.app",
+    "http://localhost:8000",
     "https://admin.orr.solutions",
     "https://orr-admin-frontend.vercel.app",
     "https://orr-solutions-admin.vercel.app",
-    "https://orr-backend-105825824472.asia-southeast2.run.app",
-    "https://orr-backend-105825824472.asia-southeast2.run.app",
+    "http://localhost:8000",
+    "http://localhost:8000",
     "https://orr.solutions",
     "https://orr-solutions.vercel.app",
     "https://orr-solutions-admin.vercel.app",

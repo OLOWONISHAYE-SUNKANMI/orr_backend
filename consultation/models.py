@@ -154,12 +154,16 @@ class ConsultantCompliance(Audit):
 
 class ConsultantJob(Audit):
     STATUS_CHOICES = [
-        ('OFFERED', 'Offered'),
+        ('REQUESTED_BY_PM', 'Requested by PM'),
+        ('ASSIGNED_BY_ADMIN', 'Assigned by Admin'),
+        ('ACCEPTED_BY_CONSULTANT', 'Accepted by Consultant'),
+        ('REJECTED_BY_CONSULTANT', 'Rejected by Consultant'),
         ('ACTIVE', 'Active'),
         ('COMPLETED', 'Completed'),
         ('CANCELLED', 'Cancelled'),
     ]
-    consultant = models.ForeignKey(Consultant, on_delete=models.CASCADE, related_name='jobs')
+    consultant = models.ForeignKey(Consultant, on_delete=models.CASCADE, related_name='jobs', null=True, blank=True)
+    project = models.ForeignKey('client.Project', on_delete=models.CASCADE, related_name='consultant_jobs', null=True, blank=True)
     title = models.CharField(max_length=200)
     industry = models.CharField(max_length=100)
     client_sector = models.CharField(max_length=100)
@@ -168,7 +172,8 @@ class ConsultantJob(Audit):
     description = models.TextField()
     scope = models.JSONField(default=list)
     deliverables = models.JSONField(default=list)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='OFFERED')
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='REQUESTED_BY_PM')
+    consultant_feedback = models.TextField(blank=True, null=True, help_text="Consultant's initial feedback/cost upon accepting the project")
     accepted_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
@@ -292,7 +297,7 @@ class ConsultantDocument(Audit):
                 if url.startswith('/'):
                     if request: return request.build_absolute_uri(url)
                     from decouple import config
-                    api_url = config('BACKEND_URL', default='https://orr-backend-105825824472.asia-southeast2.run.app')
+                    api_url = config('BACKEND_URL', default='http://localhost:8000')
                     return f"{api_url.rstrip('/')}{url}"
                 return url
             except Exception:
