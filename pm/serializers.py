@@ -654,19 +654,25 @@ class PMTaskCreateSerializer(serializers.ModelSerializer):
 
 class PMConsultantMatchSerializer(serializers.ModelSerializer):
     consultant_name = serializers.SerializerMethodField()
+    consultant_email = serializers.SerializerMethodField()
     consultant_number = serializers.CharField(
         source='consultant.consultant_number', read_only=True
     )
     specialization = serializers.SerializerMethodField()
     skills = serializers.SerializerMethodField()
     availability = serializers.SerializerMethodField()
+    phone = serializers.SerializerMethodField()
+    country = serializers.SerializerMethodField()
+    professional_title = serializers.SerializerMethodField()
+    internal_rating = serializers.CharField(source='consultant.internal_rating', read_only=True)
 
     class Meta:
         model = PMConsultantMatch
         fields = [
-            'id', 'project', 'consultant', 'consultant_name',
+            'id', 'project', 'consultant', 'consultant_name', 'consultant_email',
             'consultant_number', 'specialization', 'skills',
-            'availability', 'match_score', 'match_label',
+            'availability', 'phone', 'country', 'professional_title',
+            'internal_rating', 'match_score', 'match_label',
             'match_reason', 'is_manually_added', 'created_at',
         ]
 
@@ -677,6 +683,9 @@ class PMConsultantMatchSerializer(serializers.ModelSerializer):
         if not name:
             name = obj.consultant.user.email
         return name
+
+    def get_consultant_email(self, obj):
+        return obj.consultant.user.email if obj.consultant and obj.consultant.user else ''
 
     def get_specialization(self, obj):
         try:
@@ -689,9 +698,27 @@ class PMConsultantMatchSerializer(serializers.ModelSerializer):
 
     def get_availability(self, obj):
         try:
-            return obj.consultant.work_preference.is_available
+            return "Available" if obj.consultant.work_preference.is_available else "Not Available"
         except Exception:
-            return None
+            return "Available"
+
+    def get_phone(self, obj):
+        try:
+            return obj.consultant.profile.phone or ''
+        except Exception:
+            return ''
+
+    def get_country(self, obj):
+        try:
+            return obj.consultant.profile.country or ''
+        except Exception:
+            return ''
+
+    def get_professional_title(self, obj):
+        try:
+            return obj.consultant.profile.professional_title or ''
+        except Exception:
+            return ''
 
 
 # ═══════════════════════════════════════════════
@@ -701,6 +728,12 @@ class PMConsultantMatchSerializer(serializers.ModelSerializer):
 class PMAssignmentSerializer(serializers.ModelSerializer):
     """Full assignment serializer."""
     consultant_name = serializers.SerializerMethodField()
+    consultant_email = serializers.SerializerMethodField()
+    consultant_number = serializers.CharField(source='consultant.consultant_number', read_only=True)
+    specialization = serializers.SerializerMethodField()
+    phone = serializers.SerializerMethodField()
+    country = serializers.SerializerMethodField()
+    professional_title = serializers.SerializerMethodField()
     assigned_by = UserMiniSerializer(read_only=True)
     project_title = serializers.CharField(source='project.title', read_only=True)
     compliance = serializers.SerializerMethodField()
@@ -708,6 +741,41 @@ class PMAssignmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = PMAssignment
         fields = '__all__'
+
+    def get_consultant_name(self, obj):
+        name = obj.consultant.user.get_full_name()
+        if not name and hasattr(obj.consultant, 'profile') and obj.consultant.profile.full_name:
+            name = obj.consultant.profile.full_name
+        if not name:
+            name = obj.consultant.user.email
+        return name
+
+    def get_consultant_email(self, obj):
+        return obj.consultant.user.email if obj.consultant and obj.consultant.user else ''
+
+    def get_specialization(self, obj):
+        try:
+            return obj.consultant.specialization.primary_specialization
+        except Exception:
+            return ''
+
+    def get_phone(self, obj):
+        try:
+            return obj.consultant.profile.phone or ''
+        except Exception:
+            return ''
+
+    def get_country(self, obj):
+        try:
+            return obj.consultant.profile.country or ''
+        except Exception:
+            return ''
+
+    def get_professional_title(self, obj):
+        try:
+            return obj.consultant.profile.professional_title or ''
+        except Exception:
+            return ''
         read_only_fields = [
             'assignment_id', 'created_at', 'updated_at',
             'invitation_sent_at', 'acceptance_timestamp',

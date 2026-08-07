@@ -25,38 +25,42 @@ class IsPMUser(BasePermission):
 
 class IsAdminUser(BasePermission):
     """
-    User is an ORR admin (staff user with admin_profile).
+    User is an ORR admin or superadmin.
     """
     message = "You must be an ORR admin."
 
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
-        return request.user.is_staff and hasattr(request.user, 'admin_profile') and request.user.admin_profile.department != 'PM'
+        if request.user.is_superuser:
+            return True
+        if getattr(request.user, 'user_type', None) == 'admin':
+            return True
+        if hasattr(request.user, 'admin_profile'):
+            return request.user.admin_profile.department != 'PM'
+        return getattr(request.user, 'is_staff', False)
 
 
 class IsPMOrAdmin(BasePermission):
     """
-    User is either the assigned PM or an admin.
-    For list views, allows any authenticated PM or admin.
-    For object views, checks PM assignment.
+    User is either the assigned PM, an admin, or a superadmin.
     """
     message = "You must be the assigned PM or an ORR admin."
 
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
-        # Admins always pass
-        if request.user.is_staff and hasattr(request.user, 'admin_profile'):
-            if request.user.admin_profile.department != 'PM':
-                return True
-        # PMs pass list views
-        if request.user.is_staff and hasattr(request.user, 'admin_profile') and request.user.admin_profile.department == 'PM':
+        if request.user.is_superuser or getattr(request.user, 'user_type', None) == 'admin':
+            return True
+        if request.user.is_staff:
             return True
         return False
 
     def has_object_permission(self, request, view, obj):
-        # Admins always pass
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if request.user.is_superuser or getattr(request.user, 'user_type', None) == 'admin':
+            return True
         if request.user.is_staff and hasattr(request.user, 'admin_profile'):
             if request.user.admin_profile.department != 'PM':
                 return True
