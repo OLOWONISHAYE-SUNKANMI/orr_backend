@@ -154,6 +154,8 @@ def is_true_admin(user):
     """Helper to distinguish true admins from PMs who also have is_staff=True."""
     if not user or not user.is_staff:
         return False
+    if user.is_superuser:
+        return True
     return hasattr(user, 'admin_profile') and user.admin_profile.department != 'PM'
 
 

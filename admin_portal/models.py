@@ -816,7 +816,7 @@ class ClientDocument(Audit):
                         return request.build_absolute_uri(url)
                     
                     from decouple import config
-                    api_url = config('BACKEND_URL', default='http://localhost:8000')
+                    api_url = config('BACKEND_URL', default='https://orr-backend-105825824472.asia-southeast2.run.app')
                     return f"{api_url.rstrip('/')}{url}"
                 return url
             except Exception:
