@@ -151,12 +151,16 @@ from .permissions import IsPMOrAdmin, IsAdminUser, IsConsultantUser, IsAssignedC
 logger = logging.getLogger(__name__)
 
 def is_true_admin(user):
-    """Helper to distinguish true admins from PMs who also have is_staff=True."""
-    if not user or not user.is_staff:
+    """Helper to distinguish true admins (both Admin and SuperAdmin) from regular PMs."""
+    if not user or not user.is_authenticated:
         return False
     if user.is_superuser:
         return True
-    return hasattr(user, 'admin_profile') and user.admin_profile.department != 'PM'
+    if getattr(user, 'user_type', None) == 'admin':
+        return True
+    if hasattr(user, 'admin_profile'):
+        return user.admin_profile.department != 'PM'
+    return getattr(user, 'is_staff', False)
 
 
 # ═══════════════════════════════════════════════════════════
