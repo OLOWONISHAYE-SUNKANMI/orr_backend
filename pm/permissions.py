@@ -8,12 +8,18 @@ from rest_framework.permissions import BasePermission
 
 class IsPMUser(BasePermission):
     """
-    User is the assigned PM for the project.
+    User is the assigned PM for the project, or an Admin/SuperAdmin.
     Checks against PMProject.assigned_pm.
     """
     message = "You must be the assigned PM for this project."
 
     def has_object_permission(self, request, view, obj):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if request.user.is_superuser or getattr(request.user, 'user_type', None) == 'admin':
+            return True
+        if request.user.is_staff and hasattr(request.user, 'admin_profile') and request.user.admin_profile.department != 'PM':
+            return True
         # Handle PMProject directly
         if hasattr(obj, 'assigned_pm'):
             return obj.assigned_pm == request.user
