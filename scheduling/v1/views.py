@@ -184,6 +184,13 @@ class CreateMeetingView(APIView):
             meeting.meeting_link = "pending-google-workspace"
             meeting.save()
 
+        # Send confirmation notification to client & admins/host
+        try:
+            from admin_portal.services import NotificationService
+            NotificationService.send_meeting_notification(meeting, "confirmed", meeting.client.user)
+        except Exception as e:
+            logger.warning(f"Failed to send meeting confirmation notification: {e}")
+
         return Response(
             {
                 "success": True,
