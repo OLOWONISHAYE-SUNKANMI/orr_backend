@@ -292,6 +292,22 @@ class GoogleLoginView(APIView):
 
     def _get_user_role_info(self, user):
         """Get user role and permissions"""
+        # Prioritize consultant profile over admin profile
+        try:
+            consultant_profile = user.consultant
+            if consultant_profile:
+                return {
+                    "user_type": "consultant",
+                    "consultant_number": consultant_profile.consultant_number,
+                    "status": consultant_profile.status,
+                    "permissions": {
+                        "can_access_portal": consultant_profile.status in ['PENDING_REVIEW', 'APPROVED', 'NEEDS_CLARIFICATION'],
+                        "can_accept_jobs": consultant_profile.status == 'APPROVED',
+                    },
+                }
+        except Exception:
+            pass
+        # Fallback to admin profile
         try:
             admin_profile = user.admin_profile
             if admin_profile:
@@ -317,21 +333,6 @@ class GoogleLoginView(APIView):
                     "role_display": role.get_name_display() if role else None,
                     "is_onboarding_complete": admin_profile.is_onboarding_complete,
                     "permissions": permissions,
-                }
-        except Exception:
-            pass
-            
-        try:
-            consultant_profile = user.consultant
-            if consultant_profile:
-                return {
-                    "user_type": "consultant",
-                    "consultant_number": consultant_profile.consultant_number,
-                    "status": consultant_profile.status,
-                    "permissions": {
-                        "can_access_portal": consultant_profile.status in ['PENDING_REVIEW', 'APPROVED', 'NEEDS_CLARIFICATION'],
-                        "can_accept_jobs": consultant_profile.status == 'APPROVED',
-                    },
                 }
         except Exception:
             pass

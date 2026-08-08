@@ -100,28 +100,46 @@ class NotificationService:
                 meeting_link = getattr(meeting, 'meeting_link', '') or 'https://orr.solutions/meetings'
                 meeting_subject = f"Consultation with {client_name}"
                 
-                if notification_type == 'cancelled':
-                    ORREmailService.send_meeting_cancelled(
-                        recipient_email=recipient.email,
-                        meeting_subject=meeting_subject,
-                        meeting_time=meeting_time_str,
-                        cancellation_reason=getattr(meeting, 'cancellation_reason', 'No reason provided.'),
-                    )
-                elif notification_type == 'rescheduled':
-                    ORREmailService.send_meeting_rescheduled(
-                        recipient_email=recipient.email,
-                        meeting_subject=meeting_subject,
-                        old_time=meeting_time_str,
-                        new_time=meeting_time_str,
-                        meeting_link=meeting_link,
-                    )
+                # Notify client and host/admins
+                recipients = [recipient.email] if recipient and recipient.email else []
+                admin_emails = []
+                if meeting.host and meeting.host.email:
+                    admin_emails.append(meeting.host.email)
                 else:
-                    ORREmailService.send_meeting_scheduled(
-                        recipient_email=recipient.email,
-                        meeting_subject=meeting_subject,
-                        meeting_time=meeting_time_str,
-                        meeting_link=meeting_link,
-                    )
+                    admins = User.objects.filter(is_superuser=True, is_active=True)
+                    for admin in admins:
+                        if admin.email:
+                            admin_emails.append(admin.email)
+                
+                for admin_email in admin_emails:
+                    if admin_email not in recipients:
+                        recipients.append(admin_email)
+                
+                for email in recipients:
+                    if not email:
+                        continue
+                    if notification_type == 'cancelled':
+                        ORREmailService.send_meeting_cancelled(
+                            recipient_email=email,
+                            meeting_subject=meeting_subject,
+                            meeting_time=meeting_time_str,
+                            cancellation_reason=getattr(meeting, 'cancellation_reason', 'No reason provided.'),
+                        )
+                    elif notification_type == 'rescheduled':
+                        ORREmailService.send_meeting_rescheduled(
+                            recipient_email=email,
+                            meeting_subject=meeting_subject,
+                            old_time=meeting_time_str,
+                            new_time=meeting_time_str,
+                            meeting_link=meeting_link,
+                        )
+                    else:
+                        ORREmailService.send_meeting_scheduled(
+                            recipient_email=email,
+                            meeting_subject=meeting_subject,
+                            meeting_time=meeting_time_str,
+                            meeting_link=meeting_link,
+                        )
 
         except Exception as e:
             logger.error(f"Failed to send meeting notification: {e}")
