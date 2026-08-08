@@ -123,14 +123,43 @@ class LoginSerializer(serializers.Serializer):
                     AdminProfile.objects.create(user=user, role=admin_role, is_active=True)
                 else:
                     raise serializers.ValidationError("Unauthorized portal access. Admin profile not found.")
-        # Get user role info
-        role_info = self._get_user_role_info(user)
+        # Get user role info — pass portal so consultant logins are prioritized correctly
+        role_info = self._get_user_role_info(user, portal=portal)
         attrs["user"] = user
         attrs["role_info"] = role_info
         return attrs
 
-    def _get_user_role_info(self, user):
-        """Get user role and permissions"""
+    def _get_user_role_info(self, user, portal="client"):
+        """Get user role and permissions.
+        
+        Priority order depends on the portal:
+        - consultant portal → consultant profile first
+        - admin/pm portal   → admin profile first
+        - client portal     → client profile
+        """
+        # --- Consultant portal: always return consultant role if profile exists ---
+        if portal == "consultant":
+            if hasattr(user, "consultant"):
+                consultant = user.consultant
+                return {
+                    "user_type": "consultant",
+                    "consultant_number": consultant.consultant_number,
+                    "status": consultant.status,
+                    "permissions": {
+                        "can_access_portal": consultant.status in [
+                            'PENDING_REVIEW', 'APPROVED', 'NEEDS_CLARIFICATION', 'EMAIL_VERIFIED'
+                        ],
+                        "can_accept_jobs": consultant.status == 'APPROVED',
+                    },
+                }
+            # Consultant profile missing — return error role so frontend can handle
+            return {
+                "user_type": "consultant",
+                "status": "NOT_REGISTERED",
+                "permissions": {"can_access_portal": False},
+            }
+
+        # --- Admin / PM portal: admin profile first ---
         if hasattr(user, "admin_profile"):
             role = user.admin_profile.role
             permissions = {}
@@ -155,7 +184,9 @@ class LoginSerializer(serializers.Serializer):
                 "is_onboarding_complete": user.admin_profile.is_onboarding_complete,
                 "permissions": permissions,
             }
-        elif hasattr(user, "consultant"):
+
+        # --- Fallback: consultant profile (for users with no admin profile) ---
+        if hasattr(user, "consultant"):
             consultant = user.consultant
             return {
                 "user_type": "consultant",
@@ -165,7 +196,9 @@ class LoginSerializer(serializers.Serializer):
                     "can_access_portal": True,
                 },
             }
-        elif hasattr(user, "profile") or hasattr(user, "client_profile"):
+
+        # --- Client fallback ---
+        if hasattr(user, "profile") or hasattr(user, "client_profile"):
             from admin_portal.models import Client
             client_obj = Client.objects.filter(user=user).first()
             return {
@@ -178,4 +211,5 @@ class LoginSerializer(serializers.Serializer):
                     "can_view_resources": True,
                 },
             }
+
         return {"user_type": "unknown", "permissions": {}}
