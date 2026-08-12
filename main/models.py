@@ -37,16 +37,16 @@ class BlogPost(Audit):
 
 class AnalyticsCaseStudy(models.Model):
     title = models.CharField(max_length=200, default="Analytics Case Studies")
-    active_users = models.IntegerField(default=2780)
-    questions_answered = models.IntegerField(default=3298)
-    avg_session_length = models.DurationField(default="00:02:34")
+    active_users = models.IntegerField(default=0)
+    questions_answered = models.IntegerField(default=0)
+    avg_session_length = models.DurationField(default="00:00:00")
     starting_knowledge = models.DecimalField(
-        max_digits=5, decimal_places=2, default=64.0
+        max_digits=5, decimal_places=2, default=0
     )
     current_knowledge = models.DecimalField(
-        max_digits=5, decimal_places=2, default=86.0
+        max_digits=5, decimal_places=2, default=0
     )
-    knowledge_gain = models.DecimalField(max_digits=5, decimal_places=2, default=0.34)
+    knowledge_gain = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     monthly_activity = models.JSONField(default=dict)
 
     def __str__(self):
@@ -55,8 +55,8 @@ class AnalyticsCaseStudy(models.Model):
 
 class IndustryInsight(Audit):
     title = models.CharField(max_length=200, default="Industry Specific Insights")
-    real_time_users = models.PositiveIntegerField(default=60700)
-    total_visits = models.PositiveIntegerField(default=40200)
-    visit_duration = models.DurationField(default=timedelta(hours=36, minutes=52))
+    real_time_users = models.PositiveIntegerField(default=0)
+    total_visits = models.PositiveIntegerField(default=0)
+    visit_duration = models.DurationField(default=timedelta(0))
     top_countries = models.JSONField(default=list)
     engagement_data = models.JSONField(default=dict)

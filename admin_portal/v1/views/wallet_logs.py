@@ -76,7 +76,7 @@ class WalletBalanceAdjustmentView(APIView):
 class WalletTransactionLogsView(ListAPIView):
     """Comprehensive wallet transaction logs"""
     
-    permission_classes = []  # Temporarily disabled for testing
+    permission_classes = [IsAdminUser]  # Admin-only analytics/billing
     serializer_class = InvoiceHistorySerializer
     
     def get_queryset(self):
@@ -146,7 +146,7 @@ class WalletTransactionLogsView(ListAPIView):
 class PaymentActivityAnalyticsView(APIView):
     """Payment activity analytics and trends"""
     
-    permission_classes = []  # Temporarily disabled for testing
+    permission_classes = [IsAdminUser]  # Admin-only analytics/billing
     
     def get(self, request):
         now = timezone.now()
@@ -310,7 +310,7 @@ class PaymentActivityAnalyticsView(APIView):
 class TransactionAuditTrailView(APIView):
     """Transaction audit trail for compliance"""
     
-    permission_classes = []  # Temporarily disabled for testing
+    permission_classes = [IsAdminUser]  # Admin-only analytics/billing
     
     def get(self, request):
         # Recent transaction activities
@@ -412,7 +412,7 @@ class TransactionAuditTrailView(APIView):
 class WalletListView(APIView):
     """List all client wallets and balances"""
     
-    permission_classes = []  # Temporarily disabled for testing
+    permission_classes = [IsAdminUser]  # Admin-only analytics/billing
     def get(self, request):
         user_role = request.user.admin_profile.role
         clients = Client.objects.select_related('user', 'user__wallet').all()

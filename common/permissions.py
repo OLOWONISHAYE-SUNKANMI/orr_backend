@@ -1,35 +1,33 @@
 from rest_framework.permissions import BasePermission
 from rest_framework.exceptions import PermissionDenied
+from common import roles
+
 
 class IsClientUser(BasePermission):
     """Permission for client portal users"""
 
     def has_permission(self, request, view):
-        return request.user.is_authenticated and hasattr(request.user, "profile")
+        return roles.is_client(request.user)
 
 
 class IsAdminUser(BasePermission):
-    """Permission for admin portal users"""
+    """Canonical admin permission: superuser or an active AdminProfile with a role.
+
+    This is the single source of truth for "is an ORR admin"; pm.permissions and
+    admin_portal.permissions both defer to roles.is_admin.
+    """
+
+    message = "You must be an ORR admin."
 
     def has_permission(self, request, view):
-        return (
-            request.user.is_authenticated
-            and hasattr(request.user, "admin_profile")
-            and request.user.admin_profile.is_active
-        )
+        return roles.is_admin(request.user)
 
 
 class IsClientOrAdmin(BasePermission):
     """Permission for both client and admin users"""
 
     def has_permission(self, request, view):
-        if not request.user.is_authenticated:
-            return False
-
-        return hasattr(request.user, "profile") or (
-            hasattr(request.user, "admin_profile")
-            and request.user.admin_profile.is_active
-        )
+        return roles.is_client(request.user) or roles.is_admin(request.user)
 
 
 class HasActiveSubscription(BasePermission):
@@ -113,20 +111,17 @@ class IsHardenedSuperAdmin(BasePermission):
 
     def has_permission(self, request, view):
         user = request.user
-        
+
         if not user or not user.is_authenticated:
             return False
-            
-        # Must be a super admin role
-        if not (hasattr(user, "admin_profile") and user.admin_profile.is_active):
+
+        # Must be an active super_admin (superuser or role.name == 'super_admin')
+        if not roles.is_super_admin(user):
             return False
-            
-        if not (user.admin_profile.role and user.admin_profile.role.name == "super_admin"):
-            return False
-            
+
         # Must have an OTP device verified (2FA enforcement check)
         from django_otp import user_has_device
         if not user_has_device(user):
             raise PermissionDenied("2FA must be enabled for this account to perform super admin actions.")
-            
+
         return True

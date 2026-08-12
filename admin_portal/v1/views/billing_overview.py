@@ -19,7 +19,7 @@ from common.permissions import IsAdminUser
 class BillingOverviewView(APIView):
     """Comprehensive billing and financial overview"""
     
-    permission_classes = []  # Temporarily disabled for testing
+    permission_classes = [IsAdminUser]  # Admin-only analytics/billing
     
     def get(self, request):
         user_role = request.user.admin_profile.role
@@ -336,7 +336,7 @@ class BillingOverviewView(APIView):
 class SubscriptionAnalyticsView(APIView):
     """Subscription-specific analytics"""
     
-    permission_classes = []  # Temporarily disabled for testing
+    permission_classes = [IsAdminUser]  # Admin-only analytics/billing
     
     def get(self, request):
         # Plan distribution

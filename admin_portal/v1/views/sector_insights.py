@@ -19,7 +19,7 @@ from common.permissions import IsAdminUser
 class SectorAnalyticsView(APIView):
     """Analyze sector-based client distribution and engagement"""
     
-    permission_classes = []  # Temporarily disabled for testing
+    permission_classes = [IsAdminUser]  # Admin-only analytics/billing
     
     def get(self, request):
         # Client distribution by user type (sector)
@@ -161,7 +161,7 @@ class SectorAnalyticsView(APIView):
 class IndustryBenchmarksView(APIView):
     """Industry benchmarks and comparative analysis"""
     
-    permission_classes = []  # Temporarily disabled for testing
+    permission_classes = [IsAdminUser]  # Admin-only analytics/billing
     
     def get(self, request):
         # Industry averages

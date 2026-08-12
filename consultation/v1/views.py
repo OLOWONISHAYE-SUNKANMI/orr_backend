@@ -244,7 +244,7 @@ class ConsultantOnboardingView(APIView):
         ))
 
 class ConsultantProfileView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, consultant_id):
         try:
@@ -514,7 +514,7 @@ from django.utils import timezone
 class ConsultantJobViewSet(viewsets.ModelViewSet):
     serializer_class = ConsultantJobSerializer
     # In a real app, use IsAuthenticated and filter by request.user.consultant
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         # Allow passing consultant_id via query params for testing if needed
@@ -546,7 +546,7 @@ class ConsultantJobViewSet(viewsets.ModelViewSet):
 
 class ConsultantTaskViewSet(viewsets.ModelViewSet):
     serializer_class = ConsultantTaskSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         job_id = self.request.query_params.get('jobId')
@@ -559,7 +559,7 @@ from consultation.models import ConsultantInvoice, ConsultantDocument, Consultan
 
 class ConsultantInvoiceViewSet(viewsets.ModelViewSet):
     serializer_class = ConsultantInvoiceSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     queryset = ConsultantInvoice.objects.all()
     filterset_fields = ['consultant__consultant_number', 'status']
 
@@ -637,13 +637,13 @@ class ConsultantInvoiceViewSet(viewsets.ModelViewSet):
 
 class ConsultantDocumentViewSet(viewsets.ModelViewSet):
     serializer_class = ConsultantDocumentSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     queryset = ConsultantDocument.objects.all()
     filterset_fields = ['consultant__consultant_number', 'job']
 
 class ConsultantMessageViewSet(viewsets.ModelViewSet):
     serializer_class = ConsultantMessageSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     queryset = ConsultantMessage.objects.all()
     
     def get_queryset(self):
@@ -720,7 +720,7 @@ class ConsultantMessageViewSet(viewsets.ModelViewSet):
 
 class ConsultantMeetingViewSet(viewsets.ModelViewSet):
     serializer_class = ConsultantMeetingSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     queryset = ConsultantMeeting.objects.all()
     filterset_fields = ['consultant__consultant_number']
 
@@ -765,7 +765,7 @@ class ConsultantMeetingViewSet(viewsets.ModelViewSet):
 
 class ConsultantNotificationViewSet(viewsets.ModelViewSet):
     serializer_class = ConsultantNotificationSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     queryset = ConsultantNotification.objects.all()
     filterset_fields = ['consultant__consultant_number', 'is_read']
 
@@ -777,7 +777,7 @@ class ConsultantDocumentListView(APIView):
             return Response(api_response(success=False, status_code=status.HTTP_404_NOT_FOUND, message="Consultant not found."))
             
         docs = ConsultantDocument.objects.filter(consultant=consultant).order_by('-created_at')
-        serializer = ConsultantDocumentSerializer(docs, many=True)
+        serializer = ConsultantDocumentSerializer(docs, many=True, context={'request': request})
         return Response(api_response(data=serializer.data))
 
     def post(self, request, consultant_id):
@@ -792,7 +792,7 @@ class ConsultantDocumentListView(APIView):
         data = request.data.copy()
         data['consultant'] = consultant_id
         
-        serializer = ConsultantDocumentSerializer(data=data)
+        serializer = ConsultantDocumentSerializer(data=data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             print("DOCUMENT SAVED SUCCESSFULLY")
@@ -808,7 +808,7 @@ class ConsultantDocumentDetailView(APIView):
         except (Consultant.DoesNotExist, ConsultantDocument.DoesNotExist):
             return Response(api_response(success=False, status_code=status.HTTP_404_NOT_FOUND, message="Document not found."))
             
-        serializer = ConsultantDocumentSerializer(doc, data=request.data, partial=True)
+        serializer = ConsultantDocumentSerializer(doc, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(api_response(message="Document updated successfully.", data=serializer.data))
@@ -828,7 +828,7 @@ class ConsultantDocumentDetailView(APIView):
 from django.contrib.auth.models import User
 
 class ConsultantMessageDirectoryView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     def get(self, request, consultant_id):
         # MVP: return staff users (Project Managers)
         pms = User.objects.filter(

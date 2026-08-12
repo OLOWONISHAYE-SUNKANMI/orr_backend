@@ -20,7 +20,7 @@ from common.permissions import IsAdminUser
 class ProRataBillingRequestsView(APIView):
     """Pro-rata billing requests management"""
     
-    permission_classes = []  # Temporarily disabled for testing
+    permission_classes = [IsAdminUser]  # Admin-only analytics/billing
     
     def get(self, request):
         # Pending pro-rata requests

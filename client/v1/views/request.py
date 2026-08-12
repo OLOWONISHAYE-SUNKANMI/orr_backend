@@ -12,6 +12,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from common.permissions import IsAdminUser
+
 from client.models import ClientRequest, ClientRequestDocument, ClientRequestVersion
 from client.v1.serializers.request_serializer import (
     ClientRequestSerializer,
@@ -252,7 +254,7 @@ class ClientRequestAdminCreateView(generics.CreateAPIView):
     """
     POST: Admin creates a request internally on behalf of a client.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminUser]
     serializer_class = ClientRequestSerializer
 
     def perform_create(self, serializer):
@@ -272,7 +274,7 @@ class ClientRequestAdminListView(generics.ListAPIView):
     GET: List all requests for admin review.
     Supports filtering by status.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminUser]
     serializer_class = ClientRequestListSerializer
 
     def get_queryset(self):
@@ -289,7 +291,7 @@ class ClientRequestAdminDetailView(generics.RetrieveAPIView):
     """
     GET: Admin view of a request with full details including internal fields.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminUser]
     serializer_class = ClientRequestSerializer
 
     def get_queryset(self):
@@ -304,7 +306,7 @@ class ClientRequestAdminReviewView(APIView):
     Actions: approve_for_meeting, approve_for_pm_assignment,
              request_clarification, reject, close, archive.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminUser]
 
     def post(self, request, pk):
         try:
@@ -376,7 +378,7 @@ class ClientRequestConvertToProjectView(APIView):
     POST: Convert an approved request into a PM Project.
     Links the request to the new project via converted_project FK.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminUser]
 
     def post(self, request, pk):
         try:
@@ -450,7 +452,7 @@ class ClientRequestAdminPMListView(APIView):
     """
     GET: Returns a list of available Project Managers for assignment.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminUser]
 
     def get(self, request):
         User = get_user_model()

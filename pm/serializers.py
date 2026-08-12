@@ -933,7 +933,7 @@ from consultation.models import ConsultantMeeting, Consultant
 class PMMeetingSerializer(serializers.ModelSerializer):
     consultant_name = serializers.SerializerMethodField()
     consultant_number = serializers.CharField(source='consultant.consultant_number', read_only=True)
-    consultant = serializers.SlugRelatedField(slug_field='consultant_number', queryset=Consultant.objects.all())
+    consultant = serializers.SlugRelatedField(slug_field='user_id', queryset=Consultant.objects.all())
     
     class Meta:
         model = ConsultantMeeting

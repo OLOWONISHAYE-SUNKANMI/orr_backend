@@ -66,6 +66,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3005",
     "http://localhost:3006",
     "http://127.0.0.1:3006",
+    "https://orr-backend-105825824472.asia-southeast2.run.app",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -86,7 +87,6 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:3005",
     "http://localhost:3006",
     "http://127.0.0.1:3006",
-    "https://orr-backend-105825824472.asia-southeast2.run.app",
     "https://orr-backend-105825824472.asia-southeast2.run.app",
     "https://orr.solutions",
     "https://www.orr.solutions",

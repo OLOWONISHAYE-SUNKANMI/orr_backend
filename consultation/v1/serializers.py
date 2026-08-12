@@ -150,7 +150,8 @@ class ConsultantMessageSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class ConsultantMeetingSerializer(serializers.ModelSerializer):
-    consultant = serializers.SlugRelatedField(slug_field='consultant_number', queryset=Consultant.objects.all())
+    consultant_number = serializers.CharField(source='consultant.consultant_number', read_only=True)
+    consultant = serializers.SlugRelatedField(slug_field='user_id', queryset=Consultant.objects.all())
     class Meta:
         model = ConsultantMeeting
         fields = '__all__'

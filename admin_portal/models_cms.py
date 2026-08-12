@@ -286,10 +286,10 @@ class MessageStrip(Audit):
     
     title = RichTextField(default={"content": "Message Strip", "format": "html"})
     message = RichTextField(default={"content": "Businesses thrive like living organisms when all their systems work together *around real human needs*. ORR keeps your 'business physiology' in peak condition — aligning operations, communication, cash flow, compliance, data, and projects around the people you serve", "format": "html"})
-    user_image_1 = models.CharField(max_length=500, default="/images/user-1.jpg")
-    user_image_2 = models.CharField(max_length=500, default="/images/user-2.jpg")
-    user_image_3 = models.CharField(max_length=500, default="/images/user-3.jpg")
-    user_image_4 = models.CharField(max_length=500, default="/images/user-4.jpg")
+    user_image_1 = models.CharField(max_length=500, default="")
+    user_image_2 = models.CharField(max_length=500, default="")
+    user_image_3 = models.CharField(max_length=500, default="")
+    user_image_4 = models.CharField(max_length=500, default="")
     is_active = models.BooleanField(default=True)
     
     class Meta:
@@ -440,18 +440,18 @@ class ServicesPage(Audit):
     
     service_1_title = RichTextField(default={"content": "Strategic Advisory & Compliance", "format": "html"})
     service_1_description = RichTextField(default={"content": "We deliver clarity to complexity. From regulatory and sustainability frameworks to biotechnology and compliance consulting, our experts guide clients through evolving landscapes with confidence. Our approach combines deep technical insight with strategic foresight, ensuring every initiative is compliant, sustainable, and built for growth.", "format": "html"})
-    service_1_image = models.CharField(max_length=500, default="/man picture.jpg")
+    service_1_image = models.CharField(max_length=500, default="")
     service_1_button_text = RichTextField(default={"content": "Learn More", "format": "html"})
     
     service_2_title = RichTextField(default={"content": "Operational Systems & Infrastructure", "format": "html"})
     service_2_description = RichTextField(default={"content": "We design, build and streamline the systems that power modern organizations. Whether it's creating SOPs, structuring onboarding workflows, or coordinating complex office setups, we turn operations into well- functioning ecosystems. Our trusted network of builders, finishers, and tech specialists delivers reliability from planning to execution.", "format": "html"})
-    service_2_image = models.CharField(max_length=500, default="/man picture.jpg")
+    service_2_image = models.CharField(max_length=500, default="")
     service_2_button_text = RichTextField(default={"content": "Learn More", "format": "html"})
     
     # Data Intelligence Section
     data_intelligence_title = RichTextField(default={"content": "Data Intelligence & Concierge Solutions", "format": "html"})
     data_intelligence_description = RichTextField(default={"content": "Insight meets adaptability. We help organizations turn data into decisions through advanced analytics, KPI dashboards, and predictive modeling. Alongside our concierge division, we offer personalized support and problem-solving — delivering smart, human solutions for both business and lifestyle needs with precision and discretion.", "format": "html"})
-    data_intelligence_image = models.CharField(max_length=500, default="/man picture.jpg")
+    data_intelligence_image = models.CharField(max_length=500, default="")
     data_intelligence_button_text = RichTextField(default={"content": "Learn More", "format": "html"})
     
     # SEO
@@ -562,8 +562,8 @@ class ContactPage(Audit):
     contact_info_title = RichTextField(default={"content": "Contact Information", "format": "html"})
     contact_info_subtitle = RichTextField(default={"content": "Say something to start a live chat!", "format": "html"})
     
-    phone_number = models.CharField(max_length=500, default="+012 3456 789")
-    email_address = models.EmailField(max_length=500, default="demo@gmail.com")
+    phone_number = models.CharField(max_length=500, default="")
+    email_address = models.EmailField(max_length=500, default="")
     address = RichTextField(default={"content": "132 Dartmouth Street Boston, Massachusetts 02156 United States", "format": "html"})
     
     # Form Labels
@@ -575,10 +575,10 @@ class ContactPage(Audit):
     message_label = RichTextField(default={"content": "Message", "format": "html"})
     
     # Form Placeholders
-    first_name_placeholder = RichTextField(default={"content": "John", "format": "html"})
-    last_name_placeholder = RichTextField(default={"content": "Doe", "format": "html"})
-    email_placeholder = RichTextField(default={"content": "your@email.com", "format": "html"})
-    phone_placeholder = RichTextField(default={"content": "+1 012 3456 789", "format": "html"})
+    first_name_placeholder = RichTextField(default={"content": "", "format": "html"})
+    last_name_placeholder = RichTextField(default={"content": "", "format": "html"})
+    email_placeholder = RichTextField(default={"content": "", "format": "html"})
+    phone_placeholder = RichTextField(default={"content": "", "format": "html"})
     message_placeholder = RichTextField(default={"content": "Write your message...", "format": "html"})
     
     # Subject Options
@@ -678,7 +678,7 @@ class ProcessStep(Audit):
     description2 = RichTextField(default={"content": "", "format": "html"}, blank=True)
     description3 = RichTextField(default={"content": "", "format": "html"}, blank=True)
     description4 = RichTextField(default={"content": "", "format": "html"}, blank=True)
-    image_url = models.URLField(max_length=500, default="https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800&h=600&fit=crop")
+    image_url = models.URLField(max_length=500, default="")
     button_text = RichTextField(default={"content": "", "format": "html"}, blank=True)
     button_text2 = RichTextField(default={"content": "", "format": "html"}, blank=True)
     button_text3 = RichTextField(default={"content": "", "format": "html"}, blank=True)
@@ -854,8 +854,8 @@ class ContactPageContent(Audit):
     hero_title = RichTextField(default={"content": "Contact Us", "format": "html"})
     contact_info_title = RichTextField(default={"content": "Contact Information", "format": "html"})
     contact_info_subtitle = RichTextField(default={"content": "Say something to start a live chat!", "format": "html"})
-    phone_number = models.CharField(max_length=500, default="+012 3456 789")
-    email_address = models.EmailField(max_length=500, default="demo@gmail.com")
+    phone_number = models.CharField(max_length=500, default="")
+    email_address = models.EmailField(max_length=500, default="")
     address = RichTextField(default={"content": "132 Dartmouth Street Boston, Massachusetts 02156 United States", "format": "html"})
     first_name_label = RichTextField(default={"content": "First Name", "format": "html"})
     last_name_label = RichTextField(default={"content": "Last Name", "format": "html"})
@@ -863,10 +863,10 @@ class ContactPageContent(Audit):
     phone_label = RichTextField(default={"content": "Phone Number", "format": "html"})
     subject_label = RichTextField(default={"content": "Select Subject?", "format": "html"})
     message_label = RichTextField(default={"content": "Message", "format": "html"})
-    first_name_placeholder = RichTextField(default={"content": "John", "format": "html"})
-    last_name_placeholder = RichTextField(default={"content": "Doe", "format": "html"})
-    email_placeholder = RichTextField(default={"content": "your@email.com", "format": "html"})
-    phone_placeholder = RichTextField(default={"content": "+1 012 3456 789", "format": "html"})
+    first_name_placeholder = RichTextField(default={"content": "", "format": "html"})
+    last_name_placeholder = RichTextField(default={"content": "", "format": "html"})
+    email_placeholder = RichTextField(default={"content": "", "format": "html"})
+    phone_placeholder = RichTextField(default={"content": "", "format": "html"})
     message_placeholder = RichTextField(default={"content": "Write your message...", "format": "html"})
     subject_option_1 = RichTextField(default={"content": "General Inquiry", "format": "html"})
     subject_option_2 = RichTextField(default={"content": "General Inquiry", "format": "html"})
@@ -893,7 +893,7 @@ class StrategicAdvisoryPageContent(Audit):
     hero_title = RichTextField(default={"content": "Strategic Advisory & Compliance", "format": "html"})
     hero_subtitle = RichTextField(default={"content": "We deliver clarity to complexity. From regulatory and sustainability frameworks to biotechnology and compliance consulting, our experts guide clients through evolving landscapes with confidence.", "format": "html"})
     hero_description = RichTextField(default={"content": "Our approach combines deep technical insight with strategic foresight, ensuring every initiative is compliant, sustainable, and built for growth.", "format": "html"})
-    hero_image = models.URLField(max_length=500, default="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&h=600&fit=crop")
+    hero_image = models.URLField(max_length=500, default="")
     
     # Services Section
     services_title = RichTextField(default={"content": "Our Strategic Services", "format": "html"})
@@ -959,7 +959,7 @@ class OperationalSystemsPageContent(Audit):
     hero_title = RichTextField(default={"content": "Operational Systems & Infrastructure", "format": "html"})
     hero_subtitle = RichTextField(default={"content": "We design, build and streamline the systems that power modern organizations. Whether it's creating SOPs, structuring workflows, or coordinating complex setups.", "format": "html"})
     hero_description = RichTextField(default={"content": "We turn operations into well-functioning ecosystems. Our trusted network of builders and tech specialists delivers reliability from planning to execution.", "format": "html"})
-    hero_image = models.URLField(max_length=500, default="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=600&fit=crop")
+    hero_image = models.URLField(max_length=500, default="")
     
     # Services Section
     services_title = RichTextField(default={"content": "Our Operational Services", "format": "html"})
@@ -1011,7 +1011,7 @@ class LivingSystemsPageContent(Audit):
     hero_title = RichTextField(default={"content": "Living Systems & Regeneration", "format": "html"})
     hero_subtitle = RichTextField(default={"content": "Support for land, water, species, and ecosystems — from production systems to restoration and incident response.", "format": "html"})
     hero_description = RichTextField(default={"content": "We help organizations integrate regenerative practices that benefit both business outcomes and environmental health.", "format": "html"})
-    hero_image = models.URLField(max_length=500, default="https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&h=600&fit=crop")
+    hero_image = models.URLField(max_length=500, default="")
     
     # Services Section
     services_title = RichTextField(default={"content": "Our Regenerative Services", "format": "html"})

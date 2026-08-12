@@ -1,10 +1,12 @@
 from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from drf_spectacular.utils import extend_schema
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+
+from admin_portal.permissions import CanCreateContent
 
 from admin_portal.models_cms import (
     HowWeOperatePageContent, ProcessStep, ServicesPageContent, ServiceStage, ServicePillar,
@@ -24,18 +26,28 @@ from admin_portal.v1.serializers.cms_comprehensive import (
 )
 
 
+class PublicReadContentWriteMixin:
+    """CMS pages back public marketing content: reads are public, but writes
+    (PUT/POST/PATCH/DELETE) require content-management rights. Replaces the
+    former ``authentication_classes = [] / permission_classes = []`` that left
+    these endpoints open to anonymous internet writes.
+    """
+
+    def get_permissions(self):
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
+            return [AllowAny()]
+        return [IsAuthenticated(), CanCreateContent()]
+
+
 @extend_schema(
     tags=["CMS - How We Operate"],
     summary="Get or update How We Operate page content",
     description="Manage How We Operate page content and process steps."
 )
 @method_decorator(csrf_exempt, name='dispatch')
-class HowWeOperatePageView(APIView):
+class HowWeOperatePageView(PublicReadContentWriteMixin, APIView):
     """How We Operate page content management"""
-    
-    def get_permissions(self):
-        return []
-    
+
     def get(self, request):
         page, created = HowWeOperatePageContent.objects.get_or_create(is_active=True)
         steps = ProcessStep.objects.filter(is_active=True).order_by('order')
@@ -90,12 +102,9 @@ class HowWeOperatePageView(APIView):
     description="Manage Services page content including stages and pillars."
 )
 @method_decorator(csrf_exempt, name='dispatch')
-class ServicesPageContentView(APIView):
+class ServicesPageContentView(PublicReadContentWriteMixin, APIView):
     """Services page content management"""
-    
-    def get_permissions(self):
-        return []
-    
+
     def get(self, request):
         page, created = ServicesPageContent.objects.get_or_create(is_active=True)
         stages = ServiceStage.objects.filter(is_active=True).order_by('order')
@@ -138,11 +147,9 @@ class ServicesPageContentView(APIView):
     description="Manage Resources & Blogs page content including content cards."
 )
 @method_decorator(csrf_exempt, name='dispatch')
-class ResourcesBlogsPageContentView(APIView):
+class ResourcesBlogsPageContentView(PublicReadContentWriteMixin, APIView):
     """Resources & Blogs page content management"""
     
-    authentication_classes = []
-    permission_classes = []
     
     def get(self, request):
         page, created = ResourcesBlogsPageContent.objects.get_or_create(is_active=True)
@@ -184,11 +191,9 @@ class ResourcesBlogsPageContentView(APIView):
     description="Manage Legal & Policy page content including policy items."
 )
 @method_decorator(csrf_exempt, name='dispatch')
-class LegalPolicyPageContentView(APIView):
+class LegalPolicyPageContentView(PublicReadContentWriteMixin, APIView):
     """Legal & Policy page content management"""
     
-    authentication_classes = []
-    permission_classes = []
     
     def get(self, request):
         page, created = LegalPolicyPageContent.objects.get_or_create(is_active=True)
@@ -244,11 +249,9 @@ class LegalPolicyPageContentView(APIView):
     description="Manage Contact page content including form labels and contact information."
 )
 @method_decorator(csrf_exempt, name='dispatch')
-class ContactPageContentView(APIView):
+class ContactPageContentView(PublicReadContentWriteMixin, APIView):
     """Contact page content management"""
     
-    authentication_classes = []
-    permission_classes = []
     
     def get(self, request):
         page = ContactPageContent.objects.filter(is_active=True).first()
@@ -289,11 +292,9 @@ class ContactPageContentView(APIView):
     description="Update individual service stage content."
 )
 @method_decorator(csrf_exempt, name='dispatch')
-class ServiceStageDetailView(APIView):
+class ServiceStageDetailView(PublicReadContentWriteMixin, APIView):
     """Individual service stage management"""
     
-    authentication_classes = []
-    permission_classes = []
     
     def put(self, request, pk):
         try:
@@ -365,11 +366,9 @@ class ServiceStageDetailView(APIView):
     description="Update individual service pillar content."
 )
 @method_decorator(csrf_exempt, name='dispatch')
-class ServicePillarDetailView(APIView):
+class ServicePillarDetailView(PublicReadContentWriteMixin, APIView):
     """Individual service pillar management"""
     
-    authentication_classes = []
-    permission_classes = []
     
     def put(self, request, pk):
         try:
@@ -437,11 +436,9 @@ class ServicePillarDetailView(APIView):
     description="Update individual process step content."
 )
 @method_decorator(csrf_exempt, name='dispatch')
-class ProcessStepDetailView(APIView):
+class ProcessStepDetailView(PublicReadContentWriteMixin, APIView):
     """Individual process step management"""
     
-    authentication_classes = []
-    permission_classes = []
     
     def put(self, request, pk):
         try:
@@ -506,11 +503,9 @@ class ProcessStepDetailView(APIView):
     description="Update individual content card content."
 )
 @method_decorator(csrf_exempt, name='dispatch')
-class ContentCardDetailView(APIView):
+class ContentCardDetailView(PublicReadContentWriteMixin, APIView):
     """Individual content card management"""
     
-    authentication_classes = []
-    permission_classes = []
     
     def put(self, request, pk):
         try:
@@ -570,11 +565,9 @@ class ContentCardDetailView(APIView):
     description="Update individual policy item content."
 )
 @method_decorator(csrf_exempt, name='dispatch')
-class PolicyItemDetailView(APIView):
+class PolicyItemDetailView(PublicReadContentWriteMixin, APIView):
     """Individual policy item management"""
     
-    authentication_classes = []
-    permission_classes = []
     
     def put(self, request, pk):
         try:
@@ -621,11 +614,9 @@ class PolicyItemDetailView(APIView):
     description="Retrieve Strategic Advisory & Compliance page content."
 )
 @method_decorator(csrf_exempt, name='dispatch')
-class StrategicAdvisoryPageView(APIView):
+class StrategicAdvisoryPageView(PublicReadContentWriteMixin, APIView):
     """Strategic Advisory page content management"""
     
-    authentication_classes = []
-    permission_classes = []
     
     def get(self, request):
         try:
@@ -694,11 +685,9 @@ class StrategicAdvisoryPageView(APIView):
     description="Retrieve Operational Systems & Infrastructure page content."
 )
 @method_decorator(csrf_exempt, name='dispatch')
-class OperationalSystemsPageView(APIView):
+class OperationalSystemsPageView(PublicReadContentWriteMixin, APIView):
     """Operational Systems page content management"""
     
-    authentication_classes = []
-    permission_classes = []
     
     def get(self, request):
         try:
@@ -764,11 +753,9 @@ class OperationalSystemsPageView(APIView):
     description="Retrieve Living Systems & Regeneration page content."
 )
 @method_decorator(csrf_exempt, name='dispatch')
-class LivingSystemsPageView(APIView):
+class LivingSystemsPageView(PublicReadContentWriteMixin, APIView):
     """Living Systems page content management"""
     
-    authentication_classes = []
-    permission_classes = []
     
     def get(self, request):
         try:

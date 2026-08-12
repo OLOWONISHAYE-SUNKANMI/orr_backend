@@ -21,7 +21,7 @@ from common.permissions import IsAdminUser
 class SubscriptionManagementView(ListAPIView):
     """Comprehensive subscription management"""
     
-    permission_classes = []  # Temporarily disabled for testing
+    permission_classes = [IsAdminUser]  # Admin-only analytics/billing
     
     def get(self, request):
         # All subscriptions with details

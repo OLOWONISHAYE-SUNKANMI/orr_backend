@@ -67,7 +67,7 @@ class PaymentDisputesOverviewView(APIView):
             return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
 
         try:
-            invoice = Invoice.objects.get(id=invoice_id)
+            invoice = Invoice.objects.get(stripe_invoice_id=invoice_id)
         except Invoice.DoesNotExist:
             return Response({"error": "Invoice not found."}, status=status.HTTP_404_NOT_FOUND)
 
