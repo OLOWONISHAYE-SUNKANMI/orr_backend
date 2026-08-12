@@ -18,8 +18,11 @@ class TechnicalFeedbackSerializer(serializers.ModelSerializer):
     class Meta:
         model = TechnicalFeedback
         fields = [
-            'id', 'user', 'user_details', 'subject', 'description', 
-            'status', 'attachment', 'browser_info', 'os_info', 
+            'id', 'user', 'user_details', 'subject', 'description',
+            'status', 'attachment', 'browser_info', 'os_info',
             'url_path', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'status']
+        # `status` is writable so the admin-only detail PATCH can update it;
+        # on create the model default ('open') applies because the reporter's
+        # POST payload does not include it.
+        read_only_fields = ['id', 'created_at', 'updated_at']

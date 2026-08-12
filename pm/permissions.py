@@ -1,92 +1,71 @@
 """
 PM Permissions
 Role-based access control for the PM workflow.
+
+Role checks delegate to common.roles (the single source of truth). IsAdminUser is
+re-exported from common.permissions so there is exactly one admin definition.
 """
 
 from rest_framework.permissions import BasePermission
 
+from common import roles
+from common.permissions import IsAdminUser  # canonical; re-exported below
+
+__all__ = [
+    "IsPMUser",
+    "IsAdminUser",
+    "IsPMOrAdmin",
+    "IsAssignedConsultant",
+    "IsConsultantUser",
+    "CanAccessProject",
+]
+
+
+def _object_pm_check(user, obj):
+    """Shared object-level rule for PM-scoped resources.
+
+    Non-PM admins (and superusers) always pass; a PM passes only for objects they
+    are assigned to (or unassigned objects). Returns False otherwise.
+    """
+    if roles.is_non_pm_admin(user):
+        return True
+    if roles.is_pm(user):
+        if hasattr(obj, 'assigned_pm'):
+            return obj.assigned_pm == user or obj.assigned_pm is None
+        if hasattr(obj, 'project'):
+            return obj.project.assigned_pm == user or obj.project.assigned_pm is None
+    return False
+
 
 class IsPMUser(BasePermission):
     """
-    User is the assigned PM for the project, or an Admin/SuperAdmin.
-    Checks against PMProject.assigned_pm.
+    User is a project manager, or an Admin/SuperAdmin.
+    Object-level access is restricted to the assigned PM.
     """
     message = "You must be the assigned PM for this project."
 
     def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-        if request.user.is_superuser or getattr(request.user, 'user_type', None) in ('admin', 'superadmin', 'superuser'):
-            return True
-        if getattr(request.user, 'is_staff', False):
-            return True
-        return True
+        return roles.is_pm(request.user) or roles.is_non_pm_admin(request.user)
 
     def has_object_permission(self, request, view, obj):
         if not request.user or not request.user.is_authenticated:
             return False
-        if request.user.is_superuser or getattr(request.user, 'user_type', None) in ('admin', 'superadmin', 'superuser'):
-            return True
-        if getattr(request.user, 'is_staff', False) and hasattr(request.user, 'admin_profile') and request.user.admin_profile.department != 'PM':
-            return True
-        if hasattr(obj, 'assigned_pm'):
-            return obj.assigned_pm == request.user or obj.assigned_pm is None
-        if hasattr(obj, 'project'):
-            return obj.project.assigned_pm == request.user or obj.project.assigned_pm is None
-        return False
-
-
-class IsAdminUser(BasePermission):
-    """
-    User is an ORR admin or superadmin.
-    """
-    message = "You must be an ORR admin."
-
-    def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-        if request.user.is_superuser or getattr(request.user, 'user_type', None) in ('admin', 'superadmin', 'superuser'):
-            return True
-        if getattr(request.user, 'is_staff', False):
-            return True
-        if hasattr(request.user, 'admin_profile'):
-            return request.user.admin_profile.department != 'PM'
-        return False
-
-    def has_object_permission(self, request, view, obj):
-        return self.has_permission(request, view)
+        return _object_pm_check(request.user, obj)
 
 
 class IsPMOrAdmin(BasePermission):
     """
-    User is either the assigned PM, an admin, or a superadmin.
+    User is either a PM, an admin, or a superadmin.
     """
     message = "You must be the assigned PM or an ORR admin."
 
     def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-        if request.user.is_superuser or getattr(request.user, 'user_type', None) in ('admin', 'superadmin', 'superuser'):
-            return True
-        if getattr(request.user, 'is_staff', False):
-            return True
-        return True
+        return roles.is_admin(request.user) or roles.is_pm(request.user)
 
     def has_object_permission(self, request, view, obj):
         if not request.user or not request.user.is_authenticated:
             return False
-        if request.user.is_superuser or getattr(request.user, 'user_type', None) in ('admin', 'superadmin', 'superuser'):
-            return True
-        if getattr(request.user, 'is_staff', False):
-            return True
-        if hasattr(request.user, 'admin_profile'):
-            if request.user.admin_profile.department != 'PM':
-                return True
-        if hasattr(obj, 'assigned_pm'):
-            return obj.assigned_pm == request.user or obj.assigned_pm is None
-        if hasattr(obj, 'project'):
-            return obj.project.assigned_pm == request.user or obj.project.assigned_pm is None
-        return True
+        return _object_pm_check(request.user, obj)
 
 
 class IsAssignedConsultant(BasePermission):
@@ -98,7 +77,7 @@ class IsAssignedConsultant(BasePermission):
     def has_object_permission(self, request, view, obj):
         if not request.user or not request.user.is_authenticated:
             return False
-        if request.user.is_superuser or getattr(request.user, 'user_type', None) in ('admin', 'superadmin', 'superuser'):
+        if roles.is_admin(request.user):
             return True
         if not hasattr(request.user, 'consultant'):
             return False
@@ -115,24 +94,22 @@ class IsConsultantUser(BasePermission):
     message = "You must be an approved consultant."
 
     def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-        if request.user.is_superuser or getattr(request.user, 'user_type', None) in ('admin', 'superadmin', 'superuser'):
+        if roles.is_admin(request.user):
             return True
-        return hasattr(request.user, 'consultant')
+        return roles.is_consultant(request.user)
 
 
 class CanAccessProject(BasePermission):
     """
     Enforces confidentiality and access-level rules.
-    Superadmins and Admins always pass.
+    Admins and superadmins always pass.
     """
     message = "You do not have permission to access this project."
 
     def has_object_permission(self, request, view, obj):
         if not request.user or not request.user.is_authenticated:
             return False
-        if request.user.is_superuser or getattr(request.user, 'user_type', None) in ('admin', 'superadmin', 'superuser') or getattr(request.user, 'is_staff', False):
+        if roles.is_admin(request.user):
             return True
         project = obj if hasattr(obj, 'confidentiality_level') else getattr(obj, 'project', None)
         if not project:

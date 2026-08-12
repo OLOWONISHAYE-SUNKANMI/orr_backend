@@ -7,6 +7,7 @@ from drf_spectacular.utils import extend_schema
 from django.conf import settings
 from admin_portal.models import TechnicalFeedback
 from admin_portal.v1.serializers.feedback import TechnicalFeedbackSerializer
+from common.roles import is_admin
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 
@@ -55,7 +56,7 @@ class TechnicalFeedbackView(APIView):
         
     @extend_schema(responses=TechnicalFeedbackSerializer(many=True))
     def get(self, request):
-        if request.user.is_superuser or hasattr(request.user, 'admin_role'):
+        if is_admin(request.user):
             feedbacks = TechnicalFeedback.objects.all().order_by('-created_at')
         else:
             feedbacks = TechnicalFeedback.objects.filter(user=request.user).order_by('-created_at')
@@ -73,7 +74,7 @@ class TechnicalFeedbackDetailView(APIView):
         feedback = get_object_or_404(TechnicalFeedback, pk=pk)
         
         # Only admins should update status
-        if not (request.user.is_superuser or hasattr(request.user, 'admin_role')):
+        if not is_admin(request.user):
             return Response({"status": "error", "message": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
             
         serializer = TechnicalFeedbackSerializer(feedback, data=request.data, partial=True)

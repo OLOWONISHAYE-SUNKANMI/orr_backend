@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from common.permissions import IsAdminUser
 from drf_spectacular.utils import extend_schema
 
 from admin_portal.models_cms import (
@@ -85,7 +86,7 @@ from django.conf import settings
     description="Endpoint to verify if Redis is reachable and working."
 )
 class RedisTestView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAdminUser]  # admin-only infra diagnostic
 
     def get(self, request):
         try:

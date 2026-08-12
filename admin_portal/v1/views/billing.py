@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 from django.contrib.auth.models import User
 
 from common.permissions import IsAdminUser
-from rest_framework.permissions import AllowAny
 from payment.models import Invoice, Subscription
 from payment.v1.serializers import InvoiceHistorySerializer
 
@@ -17,7 +16,7 @@ from payment.v1.serializers import InvoiceHistorySerializer
 class AdminBillingHistoryView(ListAPIView):
     """Admin view to see ALL payments made by all users"""
     serializer_class = InvoiceHistorySerializer
-    permission_classes = [AllowAny]  # Temporarily allow any for testing
+    permission_classes = [IsAdminUser]  # Admin-only analytics/billing
     
     def get_queryset(self):
         queryset = Invoice.objects.all().order_by("-created_at")
@@ -43,7 +42,7 @@ class AdminBillingHistoryView(ListAPIView):
 @extend_schema(tags=["admin-billing"])
 class AdminBillingStatsView(APIView):
     """Admin view to get billing statistics for all users"""
-    permission_classes = [AllowAny]  # Temporarily allow any for testing
+    permission_classes = [IsAdminUser]  # Admin-only analytics/billing
     
     def get(self, request):
         # Calculate stats for all payments

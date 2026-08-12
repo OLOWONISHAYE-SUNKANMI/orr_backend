@@ -19,7 +19,7 @@ from common.permissions import IsAdminUser
 class UserBehaviorPatternsView(APIView):
     """Analyze user behavior patterns"""
     
-    permission_classes = []  # Temporarily disabled for testing
+    permission_classes = [IsAdminUser]  # Admin-only analytics/billing
     
     def get(self, request):
         now = timezone.now()
@@ -194,7 +194,7 @@ class UserBehaviorPatternsView(APIView):
 class UserJourneyAnalyticsView(APIView):
     """Analyze user journey and conversion funnels"""
     
-    permission_classes = []  # Temporarily disabled for testing
+    permission_classes = [IsAdminUser]  # Admin-only analytics/billing
     
     def get(self, request):
         # Onboarding funnel

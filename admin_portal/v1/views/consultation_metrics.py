@@ -19,7 +19,7 @@ from common.permissions import IsAdminUser
 class ConsultationPerformanceView(APIView):
     """Consultation performance metrics and analytics"""
     
-    permission_classes = []  # Temporarily disabled for testing
+    permission_classes = [IsAdminUser]  # Admin-only analytics/billing
     
     def get(self, request):
         now = timezone.now()
@@ -206,7 +206,7 @@ class ConsultationPerformanceView(APIView):
 class ConsultationSchedulingAnalyticsView(APIView):
     """Consultation scheduling analytics and optimization"""
     
-    permission_classes = []  # Temporarily disabled for testing
+    permission_classes = [IsAdminUser]  # Admin-only analytics/billing
     
     def get(self, request):
         # Scheduling patterns

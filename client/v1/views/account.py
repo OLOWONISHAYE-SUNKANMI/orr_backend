@@ -78,6 +78,7 @@ class VerifyEmailView(views.APIView):
 
 @extend_schema(tags=["account"])
 class PasswordResetRequestView(generics.GenericAPIView):
+    permission_classes = [AllowAny]  # public: anonymous password reset request
     serializer_class = PasswordResetRequestSerializer
 
     def post(self, request, *args, **kwargs):
@@ -108,6 +109,7 @@ class PasswordResetRequestView(generics.GenericAPIView):
 
 @extend_schema(tags=["account"])
 class PasswordResetConfirmView(generics.GenericAPIView):
+    permission_classes = [AllowAny]  # public: reset via emailed uid/token
     serializer_class = PasswordResetConfirmSerializer
 
     def post(self, request, uidb64, token, *args, **kwargs):

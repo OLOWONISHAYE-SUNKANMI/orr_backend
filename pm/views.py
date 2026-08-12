@@ -12,7 +12,7 @@ from django.db.models import Q, Count
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
@@ -147,20 +147,13 @@ from .serializers import (
     PMOpportunityResponseSerializer,
 )
 from .permissions import IsPMOrAdmin, IsAdminUser, IsConsultantUser, IsAssignedConsultant, IsPMUser
+from common import roles
 
 logger = logging.getLogger(__name__)
 
 def is_true_admin(user):
     """Helper to distinguish true admins (both Admin and SuperAdmin) from regular PMs."""
-    if not user or not user.is_authenticated:
-        return False
-    if user.is_superuser:
-        return True
-    if getattr(user, 'user_type', None) == 'admin':
-        return True
-    if hasattr(user, 'admin_profile'):
-        return user.admin_profile.department != 'PM'
-    return getattr(user, 'is_staff', False)
+    return roles.is_non_pm_admin(user)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -168,7 +161,7 @@ def is_true_admin(user):
 # ═══════════════════════════════════════════════════════════
 
 class PMRegistrationView(APIView):
-    permission_classes = []
+    permission_classes = [AllowAny]  # public PM registration
 
     def post(self, request):
         User = get_user_model()

@@ -15,7 +15,7 @@ from django.conf import settings
 import requests
 from client.models import Activity
 from services.meetings.calendly import CalendlyAPI
-from common.permissions import HasActivePaidSubscription
+from common.permissions import HasActivePaidSubscription, IsAdminUser
 
 from .serializers import (
     MeetingCalendarSerializer,
@@ -507,6 +507,7 @@ class CalendlyWebhookView(APIView):
 
 
 class CreateCalendlyWebhook(APIView):
+    permission_classes = [IsAuthenticated, IsAdminUser]  # admin-only: registers Calendly webhooks
     serializer_class = CalendlyWebhookSerializer
 
     def post(self, request):

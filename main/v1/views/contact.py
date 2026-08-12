@@ -1,12 +1,14 @@
 from drf_spectacular.utils import extend_schema
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
 
 from ..serializers.contact import ContactMessageSerializer
 
 
 @extend_schema(tags=["main page"])
 class ContactMessageView(APIView):
+    permission_classes = [AllowAny]  # public contact form
     serializer_class = ContactMessageSerializer
 
     def post(self, request):

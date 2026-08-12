@@ -19,7 +19,7 @@ from common.permissions import IsAdminUser
 class WorkspaceUsageAnalyticsView(APIView):
     """Workspace usage analytics and feature adoption"""
     
-    permission_classes = []  # Temporarily disabled for testing
+    permission_classes = [IsAdminUser]  # Admin-only analytics/billing
     
     def get(self, request):
         try:
@@ -381,7 +381,7 @@ class WorkspaceUsageAnalyticsView(APIView):
 class FeatureAdoptionAnalyticsView(APIView):
     """Feature adoption and onboarding analytics"""
     
-    permission_classes = []  # Temporarily disabled for testing
+    permission_classes = [IsAdminUser]  # Admin-only analytics/billing
     
     def get(self, request):
         total_clients = Client.objects.count()

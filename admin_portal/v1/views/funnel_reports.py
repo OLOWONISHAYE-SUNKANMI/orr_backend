@@ -19,7 +19,7 @@ from common.permissions import IsAdminUser
 class ConversionFunnelAnalyticsView(APIView):
     """Conversion funnel analytics from contact to engagement"""
     
-    permission_classes = []  # Temporarily disabled for testing
+    permission_classes = [IsAdminUser]  # Admin-only analytics/billing
     
     def get(self, request):
         # Main conversion funnel
@@ -259,7 +259,7 @@ class ConversionFunnelAnalyticsView(APIView):
 class TimeBasedFunnelAnalysisView(APIView):
     """Time-based funnel analysis and trends"""
     
-    permission_classes = []  # Temporarily disabled for testing
+    permission_classes = [IsAdminUser]  # Admin-only analytics/billing
     
     def get(self, request):
         # Monthly funnel performance

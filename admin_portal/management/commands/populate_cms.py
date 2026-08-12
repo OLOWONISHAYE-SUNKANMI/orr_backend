@@ -8,7 +8,7 @@ from admin_portal.models_cms import (
 
 
 class Command(BaseCommand):
-    help = 'Populate CMS models with dummy data'
+    help = 'Seed the public CMS singletons (homepage, services, FAQs, sections) with initial content'
 
     def handle(self, *args, **options):
         # Create Homepage content

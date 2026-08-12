@@ -1,5 +1,5 @@
 from rest_framework.permissions import BasePermission
-from .models import AdminProfile
+from common import roles
 
 
 class CanCreateContent(BasePermission):
@@ -8,16 +8,12 @@ class CanCreateContent(BasePermission):
             return False
         if request.user.is_superuser:
             return True
-        try:
-            admin_profile = AdminProfile.objects.get(user=request.user, is_active=True)
-            if admin_profile.role:
-                role_name = admin_profile.role.name
-                if role_name == 'super_admin':
-                    return True
-                if admin_profile.role.can_create_content:
-                    return True
-        except AdminProfile.DoesNotExist:
-            pass
+        admin_profile = roles.get_admin_profile(request.user)
+        if admin_profile and admin_profile.role:
+            if admin_profile.role.name == 'super_admin':
+                return True
+            if admin_profile.role.can_create_content:
+                return True
         return False
 
 
@@ -27,16 +23,12 @@ class CanPublishContent(BasePermission):
             return False
         if request.user.is_superuser:
             return True
-        try:
-            admin_profile = AdminProfile.objects.get(user=request.user, is_active=True)
-            if admin_profile.role:
-                role_name = admin_profile.role.name
-                if role_name == 'super_admin':
-                    return True
-                if admin_profile.role.can_publish_content:
-                    return True
-        except AdminProfile.DoesNotExist:
-            pass
+        admin_profile = roles.get_admin_profile(request.user)
+        if admin_profile and admin_profile.role:
+            if admin_profile.role.name == 'super_admin':
+                return True
+            if admin_profile.role.can_publish_content:
+                return True
         return False
 
 
@@ -46,16 +38,12 @@ class CanManageUsers(BasePermission):
             return False
         if request.user.is_superuser:
             return True
-        try:
-            admin_profile = AdminProfile.objects.get(user=request.user, is_active=True)
-            if admin_profile.role:
-                role_name = admin_profile.role.name
-                if role_name == 'super_admin':
-                    return True
-                if admin_profile.role.can_manage_users:
-                    return True
-        except AdminProfile.DoesNotExist:
-            pass
+        admin_profile = roles.get_admin_profile(request.user)
+        if admin_profile and admin_profile.role:
+            if admin_profile.role.name == 'super_admin':
+                return True
+            if admin_profile.role.can_manage_users:
+                return True
         return False
 
 
@@ -65,16 +53,12 @@ class CanManageSettings(BasePermission):
             return False
         if request.user.is_superuser:
             return True
-        try:
-            admin_profile = AdminProfile.objects.get(user=request.user, is_active=True)
-            if admin_profile.role:
-                role_name = admin_profile.role.name
-                if role_name == 'super_admin':
-                    return True
-                if admin_profile.role.can_manage_settings:
-                    return True
-        except AdminProfile.DoesNotExist:
-            pass
+        admin_profile = roles.get_admin_profile(request.user)
+        if admin_profile and admin_profile.role:
+            if admin_profile.role.name == 'super_admin':
+                return True
+            if admin_profile.role.can_manage_settings:
+                return True
         return False
 
 
@@ -84,13 +68,10 @@ class CanManageMeetings(BasePermission):
             return False
         if request.user.is_superuser:
             return True
-        try:
-            admin_profile = AdminProfile.objects.get(user=request.user, is_active=True)
-            if admin_profile.role:
-                if admin_profile.role.can_manage_meetings:
-                    return True
-        except AdminProfile.DoesNotExist:
-            pass
+        admin_profile = roles.get_admin_profile(request.user)
+        if admin_profile and admin_profile.role:
+            if admin_profile.role.can_manage_meetings:
+                return True
         return False
 
 
@@ -100,13 +81,10 @@ class CanManageTickets(BasePermission):
             return False
         if request.user.is_superuser:
             return True
-        try:
-            admin_profile = AdminProfile.objects.get(user=request.user, is_active=True)
-            if admin_profile.role:
-                if admin_profile.role.can_manage_tickets:
-                    return True
-        except AdminProfile.DoesNotExist:
-            pass
+        admin_profile = roles.get_admin_profile(request.user)
+        if admin_profile and admin_profile.role:
+            if admin_profile.role.can_manage_tickets:
+                return True
         return False
 
 
@@ -116,29 +94,22 @@ class IsAdminExceptContentEditor(BasePermission):
             return False
         if request.user.is_superuser:
             return True
-        try:
-            admin_profile = AdminProfile.objects.get(user=request.user, is_active=True)
-            if admin_profile.role:
-                role_name = admin_profile.role.name
-                if role_name in ['super_admin', 'admin', 'operator']:
-                    return True
-        except AdminProfile.DoesNotExist:
-            pass
+        admin_profile = roles.get_admin_profile(request.user)
+        if admin_profile and admin_profile.role:
+            if admin_profile.role.name in ['super_admin', 'admin', 'operator']:
+                return True
         return False
 
 
 class IsAdminUser(BasePermission):
+    """Admin permission for admin_portal views.
+
+    Delegates to the canonical roles.is_admin (superuser or active AdminProfile
+    with a role). Kept in this module because many admin_portal views import it
+    from here.
+    """
     def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-        if request.user.is_superuser:
-            return True
-        try:
-            admin_profile = AdminProfile.objects.get(user=request.user, is_active=True)
-            return admin_profile.role is not None
-        except AdminProfile.DoesNotExist:
-            pass
-        return False
+        return roles.is_admin(request.user)
 
 
 class CanEditClients(BasePermission):
@@ -147,11 +118,8 @@ class CanEditClients(BasePermission):
             return False
         if request.user.is_superuser:
             return True
-        try:
-            admin_profile = AdminProfile.objects.get(user=request.user, is_active=True)
-            return admin_profile.role and admin_profile.role.can_edit_clients
-        except AdminProfile.DoesNotExist:
-            return False
+        admin_profile = roles.get_admin_profile(request.user)
+        return bool(admin_profile and admin_profile.role and admin_profile.role.can_edit_clients)
 
 
 class CanViewAllClients(BasePermission):
@@ -160,20 +128,10 @@ class CanViewAllClients(BasePermission):
             return False
         if request.user.is_superuser:
             return True
-        try:
-            admin_profile = AdminProfile.objects.get(user=request.user, is_active=True)
-            return admin_profile.role and admin_profile.role.can_view_all_clients
-        except AdminProfile.DoesNotExist:
-            return False
+        admin_profile = roles.get_admin_profile(request.user)
+        return bool(admin_profile and admin_profile.role and admin_profile.role.can_view_all_clients)
+
 
 class IsSuperAdmin(BasePermission):
     def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-        if request.user.is_superuser:
-            return True
-        try:
-            admin_profile = AdminProfile.objects.get(user=request.user, is_active=True)
-            return admin_profile.role and admin_profile.role.name == 'super_admin'
-        except AdminProfile.DoesNotExist:
-            return False
+        return roles.is_super_admin(request.user)
